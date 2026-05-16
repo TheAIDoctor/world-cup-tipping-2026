@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { TipsForm } from "@/components/tips-form";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { formatKickoff } from "@/lib/format";
 
 const KNOCKOUT_ORDER = ["R32", "R16", "QF", "SF", "3P", "F"] as const;
 const KNOCKOUT_LABELS: Record<string, string> = {
@@ -90,14 +91,7 @@ export default async function TipsPage() {
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            {new Date(match.date).toLocaleString("en-AU", {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-              timeZoneName: "short",
-            })}
+            {formatKickoff(match.date)}
           </p>
         </CardHeader>
         <CardContent>

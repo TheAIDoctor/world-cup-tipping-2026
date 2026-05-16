@@ -81,6 +81,8 @@ model Match {
   penaltyHomeScore   Int?
   penaltyAwayScore   Int?
   date               DateTime
+  // Host city (e.g. "Mexico City") and stadium name (e.g. "Estadio Azteca").
+  city               String?
   venue              String?
   // Bracket lineage. On admin result save, the winner is written into
   // nextMatch.{home|away}TeamId per nextMatchSlot. For SF, the loser is

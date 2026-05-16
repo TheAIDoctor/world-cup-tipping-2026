@@ -3,6 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import {
+  formatKickoffDate,
+  formatKickoffTime,
+  KICKOFF_TIME_ZONE_LABEL,
+} from "@/lib/format";
 
 export default async function HomePage() {
   const session = await auth();
@@ -228,16 +233,8 @@ export default async function HomePage() {
                       {matches.map((m) => {
                         const played =
                           m.homeScore !== null && m.awayScore !== null;
-                        const date = new Date(m.date);
-                        const dateLabel = date.toLocaleDateString("en-AU", {
-                          month: "short",
-                          day: "numeric",
-                        });
-                        const timeLabel = date.toLocaleTimeString("en-AU", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: false,
-                        });
+                        const dateLabel = formatKickoffDate(m.date);
+                        const timeLabel = formatKickoffTime(m.date);
                         return (
                           <li key={m.id}>
                             <div
@@ -248,7 +245,7 @@ export default async function HomePage() {
                               }}
                             >
                               <p className="text-center text-[10px] font-mono text-slate-500 leading-tight">
-                                {dateLabel} · {timeLabel}
+                                {dateLabel} · {timeLabel} {KICKOFF_TIME_ZONE_LABEL}
                               </p>
                               <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-xs mt-0.5">
                                 <span className="flex items-center gap-1 justify-end min-w-0">
@@ -282,6 +279,13 @@ export default async function HomePage() {
                                   </span>
                                 </span>
                               </div>
+                              {(m.city || m.venue) && (
+                                <p className="text-center text-[10px] text-slate-500 mt-1 truncate">
+                                  {m.venue}
+                                  {m.venue && m.city ? " · " : ""}
+                                  {m.city}
+                                </p>
+                              )}
                             </div>
                           </li>
                         );

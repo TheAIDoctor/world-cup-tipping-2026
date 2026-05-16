@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminResultForm } from "@/components/admin-result-form";
+import { formatKickoff, formatKickoffDate } from "@/lib/format";
 
 const KNOCKOUT_ORDER = ["R32", "R16", "QF", "SF", "3P", "F"] as const;
 const STAGE_LABELS: Record<string, string> = {
@@ -191,11 +192,7 @@ export default async function AdminPage() {
                           </div>
                         </div>
                         <p className="text-[10px] text-muted-foreground">
-                          {new Date(match.date).toLocaleDateString("en-AU", {
-                            weekday: "short",
-                            month: "short",
-                            day: "numeric",
-                          })}
+                          {formatKickoff(match.date)}
                         </p>
                       </CardHeader>
                       <CardContent>
@@ -253,10 +250,7 @@ export default async function AdminPage() {
                     {match.awayTeam?.flagEmoji} {match.awayTeam?.name}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {new Date(match.date).toLocaleDateString("en-AU", {
-                      month: "short",
-                      day: "numeric",
-                    })}
+                    {formatKickoffDate(match.date)}
                   </p>
                 </CardContent>
               </Card>
