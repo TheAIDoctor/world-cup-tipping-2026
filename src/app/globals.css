@@ -136,6 +136,41 @@
   background-clip: text;
 }
 
+/* Subtle football hex-panel wash, tiled across the whole page. SVG lives
+   in /public/pitch-pattern.svg — see file for license note. The pattern
+   sits at very low opacity behind a CloudMarc radial wash so the brand
+   gradient still reads strongest near the hero. */
+.cm-pitch-bg {
+  background-color: #07003a;
+  background-image:
+    radial-gradient(ellipse at 20% 12%, rgba(193, 15, 255, 0.18) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 88%, rgba(6, 0, 151, 0.28) 0%, transparent 55%),
+    url("/pitch-pattern.svg");
+  background-repeat: no-repeat, no-repeat, repeat;
+  background-size: auto, auto, 56px 96px;
+}
+
+/* Card surfaces that want a soft outer brand glow — used on the hero
+   stat row and key navigation cards. Keep the existing border via the
+   element's own style; this only adds the surrounding aura. */
+.cm-glow {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 40px -16px rgba(193, 15, 255, 0.45),
+    0 4px 18px -8px rgba(6, 0, 151, 0.55);
+}
+
+/* Stronger lift on hover for clickable cards. */
+.cm-card-hover {
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+.cm-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 16px 36px -16px rgba(193, 15, 255, 0.55),
+    0 6px 18px -8px rgba(6, 0, 151, 0.6);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

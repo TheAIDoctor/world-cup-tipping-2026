@@ -21,12 +21,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} dark h-full antialiased`}>
-      <body className="min-h-full flex flex-col text-foreground" style={{ background: "#07003a" }}>
-        {/* Subtle grid/noise background texture */}
-        <div className="fixed inset-0 pointer-events-none" style={{
-          backgroundImage: "radial-gradient(ellipse at 20% 20%, rgba(193,15,255,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(6,0,151,0.15) 0%, transparent 50%)",
-          zIndex: 0
-        }} />
+      <body className="cm-pitch-bg min-h-full flex flex-col text-foreground">
+        {/* Football-pattern body wash + brand radial gradients. The pattern
+            is a tiled hex panel SVG (see /public/pitch-pattern.svg) at very
+            low opacity so text stays readable. Hero-level imagery lives
+            inside pages where it can sit behind specific content. */}
         <div className="relative z-10 flex flex-col min-h-full">
           <Nav />
           <main className="container mx-auto px-4 py-8 max-w-6xl flex-1">

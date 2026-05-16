@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="56" height="96" viewBox="0 0 56 96">
+  <!--
+    Tileable hexagonal pattern, evoking the classic Telstar football panel
+    layout. Strokes only, very faint — used as a subtle texture behind the
+    main content. Generated in-house, no licensing.
+  -->
+  <g fill="none" stroke="#c10fff" stroke-width="1" stroke-opacity="0.18">
+    <!-- Two staggered hexes that tile cleanly in a 56x96 box. -->
+    <polygon points="28,2 54,17 54,47 28,62 2,47 2,17" />
+    <polygon points="28,50 54,65 54,95 28,110 2,95 2,65" />
+    <polygon points="0,2 14,-6" />
+  </g>
+</svg>

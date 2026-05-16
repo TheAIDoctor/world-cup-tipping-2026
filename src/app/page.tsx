@@ -77,32 +77,67 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-8">
-      {/* Hero */}
-      <div className="text-center space-y-4 py-12">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-2"
-          style={{ background: "rgba(193,15,255,0.15)", color: "#c10fff", border: "1px solid rgba(193,15,255,0.3)" }}>
-          🌎 USA · Mexico · Canada — June 11 to July 19, 2026
-        </div>
-        <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight">
-          <span className="cm-text-gradient">CloudMarc</span>
-          <br />
-          <span className="text-white">World Cup 2026</span>
-        </h1>
-        <p className="text-slate-400 text-lg max-w-md mx-auto">
-          Predict scores, pick your champion, and battle your teammates on the leaderboard.
-        </p>
-        {!session ? (
-          <div className="pt-2">
-            <Link href="/api/auth/signin">
-              <Button size="lg" className="text-white font-bold px-8 py-6 text-lg rounded-xl shadow-lg"
-                style={{ background: "linear-gradient(135deg, #060097, #c10fff)" }}>
-                Join the Competition →
-              </Button>
-            </Link>
+      {/* Hero — stylised pitch SVG sits behind the title as a license-safe
+          visual anchor (center circle + halfway line + corner arcs). */}
+      <div className="relative text-center space-y-4 py-12 overflow-hidden">
+        <svg
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 w-full h-full"
+          viewBox="0 0 800 360"
+          preserveAspectRatio="xMidYMid slice"
+        >
+          <defs>
+            <radialGradient id="cmHeroGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#c10fff" stopOpacity="0.22" />
+              <stop offset="60%" stopColor="#060097" stopOpacity="0.1" />
+              <stop offset="100%" stopColor="#07003a" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <rect width="800" height="360" fill="url(#cmHeroGlow)" />
+          <g
+            fill="none"
+            stroke="#c10fff"
+            strokeOpacity="0.18"
+            strokeWidth="1.5"
+          >
+            {/* halfway line */}
+            <line x1="400" y1="0" x2="400" y2="360" />
+            {/* centre circle + spot */}
+            <circle cx="400" cy="180" r="86" />
+            <circle cx="400" cy="180" r="2.5" fill="#c10fff" fillOpacity="0.35" />
+            {/* corner arcs */}
+            <path d="M0,0 A30,30 0 0 1 30,30" />
+            <path d="M800,0 A30,30 0 0 0 770,30" />
+            <path d="M0,360 A30,30 0 0 0 30,330" />
+            <path d="M800,360 A30,30 0 0 1 770,330" />
+          </g>
+        </svg>
+        <div className="relative">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-2"
+            style={{ background: "rgba(193,15,255,0.15)", color: "#c10fff", border: "1px solid rgba(193,15,255,0.3)" }}>
+            🌎 USA · Mexico · Canada — June 11 to July 19, 2026
           </div>
-        ) : (
-          <p className="text-slate-400 text-sm">Welcome back, {session.user?.email?.split("@")[0]} 👋</p>
-        )}
+          <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight">
+            <span className="cm-text-gradient">CloudMarc</span>
+            <br />
+            <span className="text-white">World Cup 2026</span>
+          </h1>
+          <p className="text-slate-400 text-lg max-w-md mx-auto mt-4">
+            Predict scores, pick your champion, and battle your teammates on the leaderboard.
+          </p>
+          {!session ? (
+            <div className="pt-4">
+              <Link href="/api/auth/signin">
+                <Button size="lg" className="text-white font-bold px-8 py-6 text-lg rounded-xl shadow-lg"
+                  style={{ background: "linear-gradient(135deg, #060097, #c10fff)" }}>
+                  Join the Competition →
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <p className="text-slate-400 text-sm mt-4">Welcome back, {session.user?.email?.split("@")[0]} 👋</p>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
@@ -112,7 +147,7 @@ export default async function HomePage() {
           { label: "Tips Submitted", value: totalTips, icon: "📋" },
           { label: timeInfo.label, value: timeInfo.value, icon: "⏱️" },
         ].map((stat) => (
-          <Card key={stat.label} className="border" style={{ background: "rgba(13,0,96,0.5)", borderColor: "rgba(193,15,255,0.2)" }}>
+          <Card key={stat.label} className="border cm-glow" style={{ background: "rgba(13,0,96,0.5)", borderColor: "rgba(193,15,255,0.2)" }}>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -138,20 +173,61 @@ export default async function HomePage() {
             </p>
           ) : (
             <div className="space-y-2">
-              {leaderboard.map((player, i) => (
-                <div
-                  key={player.id}
-                  className="flex items-center justify-between py-2 border-b border-border last:border-0"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-muted-foreground font-mono text-sm w-5">
-                      {i + 1}
+              {leaderboard.map((player, i) => {
+                const isLeader = i === 0;
+                const medal = ["🥇", "🥈", "🥉"][i] ?? null;
+                return (
+                  <div
+                    key={player.id}
+                    className={
+                      "flex items-center justify-between py-2 px-3 rounded-md " +
+                      (isLeader
+                        ? "border"
+                        : "border-b border-border last:border-0")
+                    }
+                    style={
+                      isLeader
+                        ? {
+                            background:
+                              "linear-gradient(90deg, rgba(193,15,255,0.18), rgba(255,205,87,0.06) 70%, transparent)",
+                            borderColor: "rgba(255,205,87,0.4)",
+                          }
+                        : undefined
+                    }
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={
+                          medal
+                            ? "text-lg w-7 text-center"
+                            : "text-muted-foreground font-mono text-sm w-7 text-center"
+                        }
+                      >
+                        {medal ?? i + 1}
+                      </span>
+                      <span
+                        className={
+                          isLeader ? "font-semibold" : "font-medium"
+                        }
+                      >
+                        {player.name}
+                      </span>
+                    </div>
+                    <span
+                      className="font-extrabold tabular-nums"
+                      style={{
+                        color: isLeader ? "#ffcd57" : undefined,
+                        fontSize: isLeader ? "1.25rem" : "0.95rem",
+                      }}
+                    >
+                      {player.points}
+                      <span className="text-xs font-medium text-slate-500 ml-1">
+                        pts
+                      </span>
                     </span>
-                    <span className="font-medium">{player.name}</span>
                   </div>
-                  <span className="font-bold">{player.points} pts</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
           <div className="mt-4">
@@ -260,11 +336,17 @@ export default async function HomePage() {
                                 <span
                                   className={
                                     played
-                                      ? "font-bold text-sm tabular-nums"
-                                      : "text-slate-500 text-sm"
+                                      ? "font-extrabold text-lg tabular-nums leading-none px-2"
+                                      : "text-slate-500 text-sm px-2"
                                   }
                                   style={
-                                    played ? { color: "#ffcd57" } : undefined
+                                    played
+                                      ? {
+                                          color: "#ffcd57",
+                                          textShadow:
+                                            "0 0 12px rgba(255,205,87,0.35)",
+                                        }
+                                      : undefined
                                   }
                                 >
                                   {played
@@ -317,7 +399,7 @@ export default async function HomePage() {
             { href: "/leaderboard", icon: "🏆", title: "Leaderboard", desc: "See where you stand against your CloudMarc colleagues." },
           ].map((card) => (
             <Link key={card.href} href={card.href}>
-              <Card className="h-full cursor-pointer transition-all hover:scale-[1.02] hover:shadow-lg"
+              <Card className="h-full cursor-pointer cm-card-hover"
                 style={{ background: "rgba(13,0,96,0.5)", borderColor: "rgba(193,15,255,0.2)" }}>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
