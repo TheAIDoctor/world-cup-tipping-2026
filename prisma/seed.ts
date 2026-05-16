@@ -178,7 +178,160 @@ async function main() {
     }
   }
 
-  console.log(`Seeded ${matchNumber - 1} matches`);
+  console.log(`Seeded ${matchNumber - 1} group-stage matches`);
+
+  // ----- Knockout stage -----
+  // 2026 format: 32 teams (top 2 of each group + 8 best 3rd-place) → R32 (16) →
+  // R16 (8) → QF (4) → SF (2) → 3rd-place playoff + Final.
+  // We pre-seed all 32 knockout matches with TBD teams and lineage so the
+  // admin only needs to assign teams; winners auto-advance on result save.
+  //
+  // Lineage convention:
+  //   R32 match i (1..16) -> feeds R16 match ceil(i/2) — odd into "home", even into "away"
+  //   R16 match i (1..8)  -> feeds QF  match ceil(i/2) — odd into "home", even into "away"
+  //   QF  match i (1..4)  -> feeds SF  match ceil(i/2) — odd into "home", even into "away"
+  //   SF  match i (1..2)  -> winner feeds Final (i=1 home, i=2 away);
+  //                          loser feeds 3rd-place playoff (i=1 home, i=2 away)
+  const knockoutSchedule = [
+    // [stage, count, startMatchNumber, dates (one per match)]
+    {
+      stage: "R32",
+      count: 16,
+      startNumber: 73,
+      dates: [
+        "2026-06-27T15:00:00Z", "2026-06-27T18:00:00Z", "2026-06-27T21:00:00Z", "2026-06-28T00:00:00Z",
+        "2026-06-28T15:00:00Z", "2026-06-28T18:00:00Z", "2026-06-28T21:00:00Z", "2026-06-29T00:00:00Z",
+        "2026-06-29T18:00:00Z", "2026-06-29T21:00:00Z", "2026-06-30T00:00:00Z", "2026-06-30T03:00:00Z",
+        "2026-07-01T18:00:00Z", "2026-07-01T21:00:00Z", "2026-07-02T00:00:00Z", "2026-07-02T03:00:00Z",
+      ],
+    },
+    {
+      stage: "R16",
+      count: 8,
+      startNumber: 89,
+      dates: [
+        "2026-07-04T18:00:00Z", "2026-07-04T21:00:00Z",
+        "2026-07-05T18:00:00Z", "2026-07-05T21:00:00Z",
+        "2026-07-06T18:00:00Z", "2026-07-06T21:00:00Z",
+        "2026-07-07T18:00:00Z", "2026-07-07T21:00:00Z",
+      ],
+    },
+    {
+      stage: "QF",
+      count: 4,
+      startNumber: 97,
+      dates: [
+        "2026-07-09T20:00:00Z", "2026-07-09T23:00:00Z",
+        "2026-07-11T20:00:00Z", "2026-07-11T23:00:00Z",
+      ],
+    },
+    {
+      stage: "SF",
+      count: 2,
+      startNumber: 101,
+      dates: ["2026-07-14T23:00:00Z", "2026-07-15T23:00:00Z"],
+    },
+    {
+      stage: "3P",
+      count: 1,
+      startNumber: 103,
+      dates: ["2026-07-18T19:00:00Z"],
+    },
+    {
+      stage: "F",
+      count: 1,
+      startNumber: 104,
+      dates: ["2026-07-19T19:00:00Z"],
+    },
+  ];
+
+  // First pass: upsert all knockout matches without lineage so IDs exist.
+  for (const round of knockoutSchedule) {
+    for (let i = 0; i < round.count; i++) {
+      const mn = round.startNumber + i;
+      await prisma.match.upsert({
+        where: { matchNumber: mn },
+        create: {
+          matchNumber: mn,
+          stage: round.stage,
+          date: new Date(round.dates[i]),
+          venue: "Stadium TBC",
+        },
+        update: {
+          stage: round.stage,
+          date: new Date(round.dates[i]),
+        },
+      });
+    }
+  }
+
+  // Helper: find a match by matchNumber.
+  const matchByNumber = async (n: number) =>
+    prisma.match.findUnique({ where: { matchNumber: n } });
+
+  // Second pass: set lineage.
+  // R32 → R16: R32 #73..88 feed R16 #89..96. R32 #(73 + 2k) → R16 #(89 + k), slot "home".
+  //                                          R32 #(73 + 2k + 1) → R16 #(89 + k), slot "away".
+  for (let i = 0; i < 16; i++) {
+    const r32 = await matchByNumber(73 + i);
+    const r16 = await matchByNumber(89 + Math.floor(i / 2));
+    if (r32 && r16) {
+      await prisma.match.update({
+        where: { id: r32.id },
+        data: {
+          nextMatchId: r16.id,
+          nextMatchSlot: i % 2 === 0 ? "home" : "away",
+        },
+      });
+    }
+  }
+  // R16 → QF
+  for (let i = 0; i < 8; i++) {
+    const r16 = await matchByNumber(89 + i);
+    const qf = await matchByNumber(97 + Math.floor(i / 2));
+    if (r16 && qf) {
+      await prisma.match.update({
+        where: { id: r16.id },
+        data: {
+          nextMatchId: qf.id,
+          nextMatchSlot: i % 2 === 0 ? "home" : "away",
+        },
+      });
+    }
+  }
+  // QF → SF
+  for (let i = 0; i < 4; i++) {
+    const qf = await matchByNumber(97 + i);
+    const sf = await matchByNumber(101 + Math.floor(i / 2));
+    if (qf && sf) {
+      await prisma.match.update({
+        where: { id: qf.id },
+        data: {
+          nextMatchId: sf.id,
+          nextMatchSlot: i % 2 === 0 ? "home" : "away",
+        },
+      });
+    }
+  }
+  // SF → Final (winner) and SF → 3rd-place playoff (loser)
+  const final = await matchByNumber(104);
+  const thirdPlace = await matchByNumber(103);
+  for (let i = 0; i < 2; i++) {
+    const sf = await matchByNumber(101 + i);
+    if (sf && final && thirdPlace) {
+      await prisma.match.update({
+        where: { id: sf.id },
+        data: {
+          nextMatchId: final.id,
+          nextMatchSlot: i === 0 ? "home" : "away",
+          loserMatchId: thirdPlace.id,
+          loserMatchSlot: i === 0 ? "home" : "away",
+        },
+      });
+    }
+  }
+
+  console.log("Seeded 32 knockout matches with bracket lineage");
   console.log("Seeding complete!");
 }
 
