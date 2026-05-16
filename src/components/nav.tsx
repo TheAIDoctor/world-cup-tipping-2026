@@ -31,6 +31,9 @@ export async function Nav() {
             <Link href="/predict" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
               Predict
             </Link>
+            <Link href="/bracket" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
+              Bracket
+            </Link>
             <Link href="/leaderboard" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
               Leaderboard
             </Link>
