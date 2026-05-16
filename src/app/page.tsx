@@ -224,55 +224,65 @@ export default async function HomePage() {
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
                       Fixtures
                     </p>
-                    <ul className="space-y-1.5">
+                    <ul className="space-y-2">
                       {matches.map((m) => {
                         const played =
                           m.homeScore !== null && m.awayScore !== null;
                         const date = new Date(m.date);
+                        const dateLabel = date.toLocaleDateString("en-AU", {
+                          month: "short",
+                          day: "numeric",
+                        });
+                        const timeLabel = date.toLocaleTimeString("en-AU", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: false,
+                        });
                         return (
-                          <li
-                            key={m.id}
-                            className="flex items-center gap-1.5 text-xs"
-                          >
-                            <span className="text-slate-400 w-16 shrink-0">
-                              {date.toLocaleDateString("en-AU", {
-                                month: "short",
-                                day: "numeric",
-                              })}
-                            </span>
-                            <span className="text-slate-500 w-10 shrink-0 font-mono">
-                              {date.toLocaleTimeString("en-AU", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                hour12: false,
-                              })}
-                            </span>
-                            <span className="flex-1 flex items-center justify-between gap-1 min-w-0">
-                              <span className="flex items-center gap-1 truncate">
-                                <span>{m.homeTeam?.flagEmoji}</span>
-                                <span className="text-slate-300 truncate">
-                                  {m.homeTeam?.code}
+                          <li key={m.id}>
+                            <div
+                              className="rounded-md border px-2 py-1.5"
+                              style={{
+                                background: "rgba(7,0,58,0.6)",
+                                borderColor: "rgba(193,15,255,0.12)",
+                              }}
+                            >
+                              <p className="text-center text-[10px] font-mono text-slate-500 leading-tight">
+                                {dateLabel} · {timeLabel}
+                              </p>
+                              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-xs mt-0.5">
+                                <span className="flex items-center gap-1 justify-end min-w-0">
+                                  <span className="text-slate-300 truncate">
+                                    {m.homeTeam?.code}
+                                  </span>
+                                  <span className="text-base leading-none shrink-0">
+                                    {m.homeTeam?.flagEmoji}
+                                  </span>
                                 </span>
-                              </span>
-                              <span
-                                className={
-                                  played
-                                    ? "font-bold"
-                                    : "text-slate-500"
-                                }
-                                style={played ? { color: "#ffcd57" } : undefined}
-                              >
-                                {played
-                                  ? `${m.homeScore}–${m.awayScore}`
-                                  : "v"}
-                              </span>
-                              <span className="flex items-center gap-1 truncate justify-end">
-                                <span className="text-slate-300 truncate">
-                                  {m.awayTeam?.code}
+                                <span
+                                  className={
+                                    played
+                                      ? "font-bold text-sm tabular-nums"
+                                      : "text-slate-500 text-sm"
+                                  }
+                                  style={
+                                    played ? { color: "#ffcd57" } : undefined
+                                  }
+                                >
+                                  {played
+                                    ? `${m.homeScore}–${m.awayScore}`
+                                    : "v"}
                                 </span>
-                                <span>{m.awayTeam?.flagEmoji}</span>
-                              </span>
-                            </span>
+                                <span className="flex items-center gap-1 justify-start min-w-0">
+                                  <span className="text-base leading-none shrink-0">
+                                    {m.awayTeam?.flagEmoji}
+                                  </span>
+                                  <span className="text-slate-300 truncate">
+                                    {m.awayTeam?.code}
+                                  </span>
+                                </span>
+                              </div>
+                            </div>
                           </li>
                         );
                       })}
