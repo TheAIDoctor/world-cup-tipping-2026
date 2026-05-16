@@ -1,0 +1,74 @@
+import Link from "next/link";
+import Image from "next/image";
+import { auth, signOut } from "@/lib/auth";
+import { Button } from "@/components/ui/button";
+
+export async function Nav() {
+  const session = await auth();
+  const isAdmin = (session?.user as { role?: string })?.role === "admin";
+
+  return (
+    <nav className="border-b sticky top-0 z-50 backdrop-blur-md" style={{ borderColor: "rgba(193,15,255,0.2)", background: "rgba(7,0,58,0.9)" }}>
+      <div className="container mx-auto px-4 max-w-6xl flex items-center justify-between h-16">
+        <div className="flex items-center gap-8">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+            <Image
+              src="/cloudmarc-logo.png"
+              alt="CloudMarc"
+              width={120}
+              height={32}
+              className="h-8 w-auto object-contain"
+              priority
+            />
+            <span className="font-bold text-sm hidden sm:block" style={{ color: "#ffcd57" }}>
+              ⚽ WC26
+            </span>
+          </Link>
+          <div className="flex items-center gap-5">
+            <Link href="/tips" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
+              Tips
+            </Link>
+            <Link href="/predict" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
+              Predict
+            </Link>
+            <Link href="/leaderboard" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
+              Leaderboard
+            </Link>
+            {isAdmin && (
+              <Link href="/admin" className="text-sm font-medium transition-colors" style={{ color: "#ffcd57" }}>
+                Admin
+              </Link>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {session?.user ? (
+            <>
+              <span className="text-sm text-slate-400 hidden sm:block">
+                {session.user.email}
+              </span>
+              <form
+                action={async () => {
+                  "use server";
+                  await signOut({ redirectTo: "/" });
+                }}
+              >
+                <Button variant="outline" size="sm" type="submit"
+                  className="border-purple-500/40 text-slate-300 hover:bg-purple-900/30">
+                  Sign Out
+                </Button>
+              </form>
+            </>
+          ) : (
+            <Link href="/api/auth/signin">
+              <Button size="sm" className="text-white font-semibold"
+                style={{ background: "linear-gradient(135deg, #060097, #c10fff)" }}>
+                Sign In
+              </Button>
+            </Link>
+          )}
+        </div>
+      </div>
+    </nav>
+  );
+}

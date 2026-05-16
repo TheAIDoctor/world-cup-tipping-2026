@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String                @id @default(cuid())
+  name                 String?
+  email                String                @unique
+  emailVerified        DateTime?
+  image                String?
+  role                 String                @default("player")
+  createdAt            DateTime              @default(now())
+  accounts             Account[]
+  sessions             Session[]
+  matchTips            MatchTip[]
+  tournamentPrediction TournamentPrediction?
+  topScorerPrediction  TopScorerPrediction?
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Team {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  code        String  @unique
+  flagEmoji   String
+  group       String
+  homeMatches Match[] @relation("HomeTeam")
+  awayMatches Match[] @relation("AwayTeam")
+}
+
+model Match {
+  id          String     @id @default(cuid())
+  matchNumber Int        @unique
+  stage       String
+  homeTeamId  String?
+  awayTeamId  String?
+  homeTeam    Team?      @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam    Team?      @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  homeScore   Int?
+  awayScore   Int?
+  date        DateTime
+  venue       String?
+  tips        MatchTip[]
+}
+
+model MatchTip {
+  id        String @id @default(cuid())
+  userId    String
+  matchId   String
+  homeScore Int
+  awayScore Int
+  points    Int?
+  user      User   @relation(fields: [userId], references: [id])
+  match     Match  @relation(fields: [matchId], references: [id])
+
+  @@unique([userId, matchId])
+}
+
+model TournamentPrediction {
+  id       String @id @default(cuid())
+  userId   String @unique
+  user     User   @relation(fields: [userId], references: [id])
+  champion String
+  runnerUp String
+  third    String
+  fourth   String
+}
+
+model TopScorerPrediction {
+  id      String @id @default(cuid())
+  userId  String @unique
+  user    User   @relation(fields: [userId], references: [id])
+  scorer1 String
+  scorer2 String
+  scorer3 String
+}

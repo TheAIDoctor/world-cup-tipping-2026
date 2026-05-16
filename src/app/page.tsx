@@ -1,65 +1,168 @@
-import Image from "next/image";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
-export default function Home() {
+export default async function HomePage() {
+  const session = await auth();
+
+  // Stats
+  const [totalParticipants, totalTips] = await Promise.all([
+    prisma.user.count(),
+    prisma.matchTip.count(),
+  ]);
+
+  const tournamentStart = new Date("2026-06-11T00:00:00Z");
+  const tournamentEnd = new Date("2026-07-19T00:00:00Z");
+  const now = new Date();
+
+  let timeInfo: { label: string; value: number | string };
+  if (now < tournamentStart) {
+    const daysUntil = Math.ceil(
+      (tournamentStart.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    timeInfo = { label: "Days to Kick-off", value: daysUntil };
+  } else if (now < tournamentEnd) {
+    const daysRemaining = Math.ceil(
+      (tournamentEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    timeInfo = { label: "Days Remaining", value: daysRemaining };
+  } else {
+    timeInfo = { label: "Tournament", value: "Finished" };
+  }
+
+  // Top 5 leaderboard
+  const users = await prisma.user.findMany({
+    include: {
+      matchTips: { select: { points: true } },
+    },
+    take: 100,
+  });
+
+  const leaderboard = users
+    .map((user) => ({
+      id: user.id,
+      name: user.name || user.email || "Unknown",
+      points: user.matchTips.reduce((sum, t) => sum + (t.points ?? 0), 0),
+    }))
+    .sort((a, b) => b.points - a.points)
+    .slice(0, 5);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="space-y-8">
+      {/* Hero */}
+      <div className="text-center space-y-4 py-12">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-2"
+          style={{ background: "rgba(193,15,255,0.15)", color: "#c10fff", border: "1px solid rgba(193,15,255,0.3)" }}>
+          🌎 USA · Mexico · Canada — June 11 to July 19, 2026
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight">
+          <span className="cm-text-gradient">CloudMarc</span>
+          <br />
+          <span className="text-white">World Cup 2026</span>
+        </h1>
+        <p className="text-slate-400 text-lg max-w-md mx-auto">
+          Predict scores, pick your champion, and battle your teammates on the leaderboard.
+        </p>
+        {!session ? (
+          <div className="pt-2">
+            <Link href="/api/auth/signin">
+              <Button size="lg" className="text-white font-bold px-8 py-6 text-lg rounded-xl shadow-lg"
+                style={{ background: "linear-gradient(135deg, #060097, #c10fff)" }}>
+                Join the Competition →
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <p className="text-slate-400 text-sm">Welcome back, {session.user?.email?.split("@")[0]} 👋</p>
+        )}
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {[
+          { label: "Participants", value: totalParticipants, icon: "👥" },
+          { label: "Tips Submitted", value: totalTips, icon: "📋" },
+          { label: timeInfo.label, value: timeInfo.value, icon: "⏱️" },
+        ].map((stat) => (
+          <Card key={stat.label} className="border" style={{ background: "rgba(13,0,96,0.5)", borderColor: "rgba(193,15,255,0.2)" }}>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-slate-400">{stat.label}</p>
+                  <p className="text-4xl font-extrabold mt-1" style={{ color: "#ffcd57" }}>{stat.value}</p>
+                </div>
+                <span className="text-3xl">{stat.icon}</span>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Top 5 Leaderboard Preview */}
+      <Card>
+        <CardHeader>
+          <CardTitle>🏆 Top Tippers</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {leaderboard.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              No tips submitted yet. Be the first!
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {leaderboard.map((player, i) => (
+                <div
+                  key={player.id}
+                  className="flex items-center justify-between py-2 border-b border-border last:border-0"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-muted-foreground font-mono text-sm w-5">
+                      {i + 1}
+                    </span>
+                    <span className="font-medium">{player.name}</span>
+                  </div>
+                  <span className="font-bold">{player.points} pts</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="mt-4">
+            <Link href="/leaderboard">
+              <Button variant="outline" size="sm">
+                View Full Leaderboard
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quick Links */}
+      {session && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { href: "/tips", icon: "📋", title: "Match Tips", desc: "Predict scores for all 72 group stage matches. 5 pts for exact score!" },
+            { href: "/predict", icon: "🔮", title: "Tournament Predictions", desc: "Pick champion, finalists & top 3 scorers before June 11." },
+            { href: "/leaderboard", icon: "🏆", title: "Leaderboard", desc: "See where you stand against your CloudMarc colleagues." },
+          ].map((card) => (
+            <Link key={card.href} href={card.href}>
+              <Card className="h-full cursor-pointer transition-all hover:scale-[1.02] hover:shadow-lg"
+                style={{ background: "rgba(13,0,96,0.5)", borderColor: "rgba(193,15,255,0.2)" }}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <span>{card.icon}</span>
+                    <span>{card.title}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-slate-400 text-sm">{card.desc}</p>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
         </div>
-      </main>
+      )}
     </div>
   );
 }

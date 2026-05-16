@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# prisma local db
+prisma/dev.db
+prisma/dev.db-journal
+
+# claude worktrees / local settings
+.claude/worktrees/
+.claude/settings.local.json
