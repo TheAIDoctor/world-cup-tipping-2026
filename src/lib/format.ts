@@ -32,6 +32,18 @@ export function formatKickoffDate(date: Date | string): string {
   });
 }
 
+// Flag emoji for the three 2026 host countries.
+const HOST_COUNTRY_FLAGS: Record<string, string> = {
+  USA: "🇺🇸",
+  Mexico: "🇲🇽",
+  Canada: "🇨🇦",
+};
+
+export function hostCountryFlag(country: string | null | undefined): string {
+  if (!country) return "";
+  return HOST_COUNTRY_FLAGS[country] ?? "";
+}
+
 // "01:00" (24h, Melbourne)
 export function formatKickoffTime(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;

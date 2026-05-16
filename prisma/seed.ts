@@ -129,25 +129,27 @@ function getMatchDate(matchIndex: number): Date {
 // Azteca, and the Final (#104) is at MetLife Stadium — we reflect that in
 // the rotation by listing Azteca first and pinning the Final explicitly.
 const VENUES = [
-  { city: "Mexico City", venue: "Estadio Azteca" },
-  { city: "Inglewood, CA", venue: "SoFi Stadium" },
-  { city: "Arlington, TX", venue: "AT&T Stadium" },
-  { city: "Atlanta", venue: "Mercedes-Benz Stadium" },
-  { city: "Houston", venue: "NRG Stadium" },
-  { city: "Kansas City", venue: "Arrowhead Stadium" },
-  { city: "Miami Gardens, FL", venue: "Hard Rock Stadium" },
-  { city: "Philadelphia", venue: "Lincoln Financial Field" },
-  { city: "Santa Clara, CA", venue: "Levi's Stadium" },
-  { city: "Seattle", venue: "Lumen Field" },
-  { city: "Foxborough, MA", venue: "Gillette Stadium" },
-  { city: "East Rutherford, NJ", venue: "MetLife Stadium" },
-  { city: "Guadalajara", venue: "Estadio Akron" },
-  { city: "Monterrey", venue: "Estadio BBVA" },
-  { city: "Toronto", venue: "BMO Field" },
-  { city: "Vancouver", venue: "BC Place" },
+  { city: "Mexico City", venue: "Estadio Azteca", country: "Mexico" },
+  { city: "Inglewood, CA", venue: "SoFi Stadium", country: "USA" },
+  { city: "Arlington, TX", venue: "AT&T Stadium", country: "USA" },
+  { city: "Atlanta", venue: "Mercedes-Benz Stadium", country: "USA" },
+  { city: "Houston", venue: "NRG Stadium", country: "USA" },
+  { city: "Kansas City", venue: "Arrowhead Stadium", country: "USA" },
+  { city: "Miami Gardens, FL", venue: "Hard Rock Stadium", country: "USA" },
+  { city: "Philadelphia", venue: "Lincoln Financial Field", country: "USA" },
+  { city: "Santa Clara, CA", venue: "Levi's Stadium", country: "USA" },
+  { city: "Seattle", venue: "Lumen Field", country: "USA" },
+  { city: "Foxborough, MA", venue: "Gillette Stadium", country: "USA" },
+  { city: "East Rutherford, NJ", venue: "MetLife Stadium", country: "USA" },
+  { city: "Guadalajara", venue: "Estadio Akron", country: "Mexico" },
+  { city: "Monterrey", venue: "Estadio BBVA", country: "Mexico" },
+  { city: "Toronto", venue: "BMO Field", country: "Canada" },
+  { city: "Vancouver", venue: "BC Place", country: "Canada" },
 ] as const;
 
-function venueForMatch(matchIndex: number): { city: string; venue: string } {
+function venueForMatch(
+  matchIndex: number
+): { city: string; venue: string; country: string } {
   return VENUES[matchIndex % VENUES.length];
 }
 
@@ -189,7 +191,7 @@ async function main() {
     ];
 
     for (const m of groupMatches) {
-      const { city, venue } = venueForMatch(matchIndex);
+      const { city, venue, country } = venueForMatch(matchIndex);
       await prisma.match.upsert({
         where: { matchNumber },
         create: {
@@ -200,6 +202,7 @@ async function main() {
           date: getMatchDate(matchIndex),
           city,
           venue,
+          country,
         },
         update: {
           homeTeamId: m.home.id,
@@ -207,6 +210,7 @@ async function main() {
           date: getMatchDate(matchIndex),
           city,
           venue,
+          country,
         },
       });
       matchNumber++;
@@ -283,18 +287,21 @@ async function main() {
 
   // Knockout venue pins for the marquee fixtures (per FIFA's announced
   // designations for 2026). Everything else continues the venue round-robin.
-  const KNOCKOUT_VENUE_PINS: Record<number, { city: string; venue: string }> = {
-    103: { city: "Miami Gardens, FL", venue: "Hard Rock Stadium" }, // 3rd-place playoff
-    104: { city: "East Rutherford, NJ", venue: "MetLife Stadium" }, // Final
-    101: { city: "Arlington, TX", venue: "AT&T Stadium" }, // SF 1
-    102: { city: "Atlanta", venue: "Mercedes-Benz Stadium" }, // SF 2
+  const KNOCKOUT_VENUE_PINS: Record<
+    number,
+    { city: string; venue: string; country: string }
+  > = {
+    103: { city: "Miami Gardens, FL", venue: "Hard Rock Stadium", country: "USA" }, // 3rd-place playoff
+    104: { city: "East Rutherford, NJ", venue: "MetLife Stadium", country: "USA" }, // Final
+    101: { city: "Arlington, TX", venue: "AT&T Stadium", country: "USA" }, // SF 1
+    102: { city: "Atlanta", venue: "Mercedes-Benz Stadium", country: "USA" }, // SF 2
   };
 
   // First pass: upsert all knockout matches without lineage so IDs exist.
   for (const round of knockoutSchedule) {
     for (let i = 0; i < round.count; i++) {
       const mn = round.startNumber + i;
-      const { city, venue } =
+      const { city, venue, country } =
         KNOCKOUT_VENUE_PINS[mn] ?? venueForMatch(mn - 1);
       await prisma.match.upsert({
         where: { matchNumber: mn },
@@ -304,12 +311,14 @@ async function main() {
           date: new Date(round.dates[i]),
           city,
           venue,
+          country,
         },
         update: {
           stage: round.stage,
           date: new Date(round.dates[i]),
           city,
           venue,
+          country,
         },
       });
     }

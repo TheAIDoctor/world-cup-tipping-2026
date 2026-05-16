@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   formatKickoffDate,
   formatKickoffTime,
+  hostCountryFlag,
   KICKOFF_TIME_ZONE_LABEL,
 } from "@/lib/format";
 
@@ -284,6 +285,14 @@ export default async function HomePage() {
                                   {m.venue}
                                   {m.venue && m.city ? " · " : ""}
                                   {m.city}
+                                  {m.country && (
+                                    <span
+                                      className="ml-1"
+                                      title={m.country}
+                                    >
+                                      {hostCountryFlag(m.country)}
+                                    </span>
+                                  )}
                                 </p>
                               )}
                             </div>
