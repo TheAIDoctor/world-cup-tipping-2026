@@ -368,12 +368,13 @@ export default async function HomePage() {
                                   {m.venue && m.city ? " · " : ""}
                                   {m.city}
                                   {m.country && (
-                                    <span
-                                      className="ml-1"
-                                      title={m.country}
-                                    >
-                                      {hostCountryFlag(m.country)}
-                                    </span>
+                                    <>
+                                      {m.city ? ", " : " "}
+                                      {m.country}
+                                      <span className="ml-1">
+                                        {hostCountryFlag(m.country)}
+                                      </span>
+                                    </>
                                   )}
                                 </p>
                               )}
