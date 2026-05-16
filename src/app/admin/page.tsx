@@ -70,7 +70,7 @@ export default async function AdminPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 text-center">
+      <div className="grid grid-cols-3 gap-3 sm:gap-4 text-center">
         <Card>
           <CardContent className="py-4">
             <p className="text-2xl font-bold">{stats.total}</p>

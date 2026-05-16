@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/nav";
+import { BottomTabBar } from "@/components/bottom-tab-bar";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -28,12 +29,13 @@ export default function RootLayout({
             inside pages where it can sit behind specific content. */}
         <div className="relative z-10 flex flex-col min-h-full">
           <Nav />
-          <main className="container mx-auto px-4 py-8 max-w-6xl flex-1">
+          <main className="container mx-auto px-4 py-6 sm:py-8 max-w-6xl flex-1 pb-24 md:pb-8">
             {children}
           </main>
-          <footer className="text-center py-4 text-xs text-slate-600 border-t" style={{ borderColor: "rgba(193,15,255,0.1)" }}>
+          <footer className="text-center py-4 text-xs text-slate-600 border-t hidden md:block" style={{ borderColor: "rgba(193,15,255,0.1)" }}>
             ⚽ CloudMarc World Cup 2026 · Built with ❤️ for the team
           </footer>
+          <BottomTabBar />
         </div>
       </body>
     </html>

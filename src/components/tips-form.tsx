@@ -64,9 +64,11 @@ export function TipsForm({
   return (
     <form onSubmit={handleSubmit}>
       <div className="flex items-center gap-2">
-        <span className="text-sm font-medium flex-1 truncate">{homeTeam}</span>
+        <span className="text-base sm:text-sm font-medium flex-1 truncate">{homeTeam}</span>
         <Input
           type="number"
+          inputMode="numeric"
+          pattern="[0-9]*"
           min={0}
           max={20}
           value={homeScore}
@@ -75,12 +77,14 @@ export function TipsForm({
             setSaved(false);
           }}
           disabled={locked}
-          className="w-14 text-center px-1"
+          className="w-16 sm:w-14 text-center px-1 font-bold text-lg sm:text-base"
           placeholder="0"
         />
         <span className="text-muted-foreground">–</span>
         <Input
           type="number"
+          inputMode="numeric"
+          pattern="[0-9]*"
           min={0}
           max={20}
           value={awayScore}
@@ -89,10 +93,10 @@ export function TipsForm({
             setSaved(false);
           }}
           disabled={locked}
-          className="w-14 text-center px-1"
+          className="w-16 sm:w-14 text-center px-1 font-bold text-lg sm:text-base"
           placeholder="0"
         />
-        <span className="text-sm font-medium flex-1 truncate text-right">
+        <span className="text-base sm:text-sm font-medium flex-1 truncate text-right">
           {awayTeam}
         </span>
       </div>

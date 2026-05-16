@@ -161,6 +161,8 @@ export function AdminResultForm({
         {renderTeamSlot(homeTeamId, setHomeTeamId, "Home team…", homeTeam)}
         <Input
           type="number"
+          inputMode="numeric"
+          pattern="[0-9]*"
           min={0}
           max={20}
           value={homeScore}
@@ -168,12 +170,14 @@ export function AdminResultForm({
             setHomeScore(e.target.value);
             setSaved(false);
           }}
-          className="w-14 text-center px-1"
+          className="w-16 sm:w-14 text-center px-1 font-bold text-lg sm:text-base"
           placeholder="0"
         />
         <span className="text-muted-foreground">–</span>
         <Input
           type="number"
+          inputMode="numeric"
+          pattern="[0-9]*"
           min={0}
           max={20}
           value={awayScore}
@@ -181,17 +185,19 @@ export function AdminResultForm({
             setAwayScore(e.target.value);
             setSaved(false);
           }}
-          className="w-14 text-center px-1"
+          className="w-16 sm:w-14 text-center px-1 font-bold text-lg sm:text-base"
           placeholder="0"
         />
         {renderTeamSlot(awayTeamId, setAwayTeamId, "Away team…", awayTeam)}
       </div>
 
       {isKnockout && (
-        <div className="flex items-center gap-2 text-xs">
+        <div className="flex items-center gap-2 text-xs flex-wrap">
           <span className="text-muted-foreground w-12 text-right shrink-0">Pens</span>
           <Input
             type="number"
+            inputMode="numeric"
+            pattern="[0-9]*"
             min={0}
             max={20}
             value={penaltyHome}
@@ -199,12 +205,14 @@ export function AdminResultForm({
               setPenaltyHome(e.target.value);
               setSaved(false);
             }}
-            className="w-14 text-center px-1"
+            className="w-16 sm:w-14 text-center px-1"
             placeholder="—"
           />
           <span className="text-muted-foreground">–</span>
           <Input
             type="number"
+            inputMode="numeric"
+            pattern="[0-9]*"
             min={0}
             max={20}
             value={penaltyAway}
@@ -212,7 +220,7 @@ export function AdminResultForm({
               setPenaltyAway(e.target.value);
               setSaved(false);
             }}
-            className="w-14 text-center px-1"
+            className="w-16 sm:w-14 text-center px-1"
             placeholder="—"
           />
           <span className="text-muted-foreground text-[10px]">

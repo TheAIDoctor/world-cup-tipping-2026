@@ -118,16 +118,16 @@ export default async function TipsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">📋 Match Tips</h1>
+          <h1 className="text-2xl sm:text-2xl font-bold">📋 Match Tips</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Predict scores for each match. Tips lock when the match kicks off.
             Knockout tips are scored on the 90-minute result — penalty
             shootouts only decide who advances.
           </p>
         </div>
-        <div className="text-right text-sm text-muted-foreground">
+        <div className="flex sm:flex-col gap-3 sm:gap-0 text-sm text-muted-foreground sm:text-right shrink-0">
           <p>5 pts — exact score</p>
           <p>3 pts — correct result</p>
         </div>

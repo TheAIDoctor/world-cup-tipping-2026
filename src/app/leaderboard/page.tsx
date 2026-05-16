@@ -36,7 +36,7 @@ export default async function LeaderboardPage() {
 
   return (
     <div className="space-y-8">
-      <header className="relative text-center py-8 overflow-hidden">
+      <header className="relative text-center py-4 sm:py-8 overflow-hidden">
         <svg
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 w-full h-full"
@@ -145,12 +145,12 @@ export default async function LeaderboardPage() {
               className="divide-y"
               style={{ borderColor: "rgba(193,15,255,0.1)" }}
             >
-              <div className="grid grid-cols-[3rem_1fr_4.5rem_4.5rem_4.5rem_5.5rem] gap-2 items-center px-4 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
+              <div className="grid grid-cols-[2.5rem_1fr_5rem] md:grid-cols-[3rem_1fr_4.5rem_4.5rem_4.5rem_5.5rem] gap-2 items-center px-3 sm:px-4 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
                 <span>Rank</span>
                 <span>Player</span>
-                <span className="text-right">Tips</span>
-                <span className="text-right">Tournament</span>
-                <span className="text-right">Top Scorer</span>
+                <span className="text-right hidden md:block">Tips</span>
+                <span className="text-right hidden md:block">Tournament</span>
+                <span className="text-right hidden md:block">Top Scorer</span>
                 <span className="text-right">Total</span>
               </div>
               {leaderboard.map((player, idx) => {
@@ -160,7 +160,7 @@ export default async function LeaderboardPage() {
                 return (
                   <div
                     key={player.id}
-                    className="grid grid-cols-[3rem_1fr_4.5rem_4.5rem_4.5rem_5.5rem] gap-2 items-center px-4 py-3"
+                    className="grid grid-cols-[2.5rem_1fr_5rem] md:grid-cols-[3rem_1fr_4.5rem_4.5rem_4.5rem_5.5rem] gap-2 items-center px-3 sm:px-4 py-3"
                     style={
                       isLeader
                         ? {
@@ -200,13 +200,13 @@ export default async function LeaderboardPage() {
                         </p>
                       )}
                     </div>
-                    <span className="text-right tabular-nums text-sm text-slate-300">
+                    <span className="text-right tabular-nums text-sm text-slate-300 hidden md:block">
                       {player.matchPts}
                     </span>
-                    <span className="text-right tabular-nums text-sm text-muted-foreground">
+                    <span className="text-right tabular-nums text-sm text-muted-foreground hidden md:block">
                       {player.tournamentPts}
                     </span>
-                    <span className="text-right tabular-nums text-sm text-muted-foreground">
+                    <span className="text-right tabular-nums text-sm text-muted-foreground hidden md:block">
                       {player.topScorerPts}
                     </span>
                     <span

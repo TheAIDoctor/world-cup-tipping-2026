@@ -79,7 +79,7 @@ export default async function HomePage() {
     <div className="space-y-8">
       {/* Hero — stylised pitch SVG sits behind the title as a license-safe
           visual anchor (center circle + halfway line + corner arcs). */}
-      <div className="relative text-center space-y-4 py-12 overflow-hidden">
+      <div className="relative text-center space-y-4 py-6 sm:py-12 overflow-hidden">
         <svg
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 w-full h-full"
@@ -113,16 +113,16 @@ export default async function HomePage() {
           </g>
         </svg>
         <div className="relative">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-2"
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold mb-2 max-w-[90vw]"
             style={{ background: "rgba(193,15,255,0.15)", color: "#c10fff", border: "1px solid rgba(193,15,255,0.3)" }}>
-            🌎 USA · Mexico · Canada — June 11 to July 19, 2026
+            🌎 USA · Mexico · Canada — Jun 11 to Jul 19, 2026
           </div>
-          <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight">
+          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight">
             <span className="cm-text-gradient">CloudMarc</span>
             <br />
             <span className="text-white">World Cup 2026</span>
           </h1>
-          <p className="text-slate-400 text-lg max-w-md mx-auto mt-4">
+          <p className="text-slate-400 text-base sm:text-lg max-w-md mx-auto mt-4 px-4">
             Predict scores, pick your champion, and battle your teammates on the leaderboard.
           </p>
           {!session ? (
@@ -255,23 +255,23 @@ export default async function HomePage() {
             </Button>
           </Link>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {groupLetters.map((g) => {
             const teams = teamsByGroup[g] ?? [];
             const matches = matchesByGroup[g] ?? [];
             return (
               <Card
                 key={g}
-                className="border"
+                className="border py-3 gap-2"
                 style={{
                   background: "rgba(13,0,96,0.5)",
                   borderColor: "rgba(193,15,255,0.2)",
                 }}
               >
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
+                <CardHeader className="px-3 pb-0">
+                  <CardTitle className="flex items-center gap-2 text-sm">
                     <span
-                      className="inline-flex items-center justify-center w-7 h-7 rounded-md font-bold text-sm"
+                      className="inline-flex items-center justify-center w-6 h-6 rounded font-bold text-xs"
                       style={{
                         background: "linear-gradient(135deg, #060097, #c10fff)",
                         color: "#fff",
@@ -282,108 +282,103 @@ export default async function HomePage() {
                     <span>Group {g}</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <ul className="space-y-1">
+                <CardContent className="px-3 space-y-2">
+                  <ul className="space-y-0.5">
                     {teams.map((t) => (
                       <li
                         key={t.id}
-                        className="flex items-center gap-2 text-sm"
+                        className="flex items-center gap-2 text-[13px]"
                       >
-                        <span className="text-lg leading-none">
+                        <span className="text-base leading-none">
                           {t.flagEmoji}
                         </span>
-                        <span className="text-slate-200">{t.name}</span>
-                        <span className="ml-auto text-[10px] font-mono text-slate-500">
+                        <span className="text-slate-200 truncate">{t.name}</span>
+                        <span className="ml-auto text-[10px] font-mono text-slate-500 shrink-0">
                           {t.code}
                         </span>
                       </li>
                     ))}
                   </ul>
-                  <div
-                    className="pt-2 border-t"
+                  <ul
+                    className="space-y-1 pt-2 border-t"
                     style={{ borderColor: "rgba(193,15,255,0.15)" }}
                   >
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                      Fixtures
-                    </p>
-                    <ul className="space-y-2">
-                      {matches.map((m) => {
-                        const played =
-                          m.homeScore !== null && m.awayScore !== null;
-                        const dateLabel = formatKickoffDate(m.date);
-                        const timeLabel = formatKickoffTime(m.date);
-                        return (
-                          <li key={m.id}>
-                            <div
-                              className="rounded-md border px-2 py-1.5"
-                              style={{
-                                background: "rgba(7,0,58,0.6)",
-                                borderColor: "rgba(193,15,255,0.12)",
-                              }}
-                            >
-                              <p className="text-center text-[10px] font-mono text-slate-500 leading-tight">
-                                {dateLabel} · {timeLabel} {KICKOFF_TIME_ZONE_LABEL}
-                              </p>
-                              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-xs mt-0.5">
-                                <span className="flex items-center gap-1 justify-end min-w-0">
-                                  <span className="text-slate-300 truncate">
-                                    {m.homeTeam?.code}
-                                  </span>
-                                  <span className="text-base leading-none shrink-0">
-                                    {m.homeTeam?.flagEmoji}
-                                  </span>
+                    {matches.map((m) => {
+                      const played =
+                        m.homeScore !== null && m.awayScore !== null;
+                      const dateLabel = formatKickoffDate(m.date);
+                      const timeLabel = formatKickoffTime(m.date);
+                      return (
+                        <li key={m.id}>
+                          <div
+                            className="rounded-md border px-2 py-1 leading-tight"
+                            style={{
+                              background: "rgba(7,0,58,0.6)",
+                              borderColor: "rgba(193,15,255,0.12)",
+                            }}
+                          >
+                            <p className="text-center text-[10px] font-mono text-slate-500">
+                              {dateLabel} · {timeLabel} {KICKOFF_TIME_ZONE_LABEL}
+                            </p>
+                            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-xs mt-0.5">
+                              <span className="flex items-center gap-1 justify-end min-w-0">
+                                <span className="text-slate-300 truncate">
+                                  {m.homeTeam?.code}
                                 </span>
-                                <span
-                                  className={
-                                    played
-                                      ? "font-extrabold text-lg tabular-nums leading-none px-2"
-                                      : "text-slate-500 text-sm px-2"
-                                  }
-                                  style={
-                                    played
-                                      ? {
-                                          color: "#ffcd57",
-                                          textShadow:
-                                            "0 0 12px rgba(255,205,87,0.35)",
-                                        }
-                                      : undefined
-                                  }
-                                >
-                                  {played
-                                    ? `${m.homeScore}–${m.awayScore}`
-                                    : "v"}
+                                <span className="text-base leading-none shrink-0">
+                                  {m.homeTeam?.flagEmoji}
                                 </span>
-                                <span className="flex items-center gap-1 justify-start min-w-0">
-                                  <span className="text-base leading-none shrink-0">
-                                    {m.awayTeam?.flagEmoji}
-                                  </span>
-                                  <span className="text-slate-300 truncate">
-                                    {m.awayTeam?.code}
-                                  </span>
+                              </span>
+                              <span
+                                className={
+                                  played
+                                    ? "font-extrabold text-base tabular-nums leading-none px-1"
+                                    : "text-slate-500 text-sm px-1"
+                                }
+                                style={
+                                  played
+                                    ? {
+                                        color: "#ffcd57",
+                                        textShadow:
+                                          "0 0 12px rgba(255,205,87,0.35)",
+                                      }
+                                    : undefined
+                                }
+                              >
+                                {played
+                                  ? `${m.homeScore}–${m.awayScore}`
+                                  : "v"}
+                              </span>
+                              <span className="flex items-center gap-1 justify-start min-w-0">
+                                <span className="text-base leading-none shrink-0">
+                                  {m.awayTeam?.flagEmoji}
                                 </span>
-                              </div>
-                              {(m.city || m.venue) && (
-                                <p className="text-center text-[10px] text-slate-500 mt-1 truncate">
-                                  {m.venue}
-                                  {m.venue && m.city ? " · " : ""}
-                                  {m.city}
-                                  {m.country && (
-                                    <>
-                                      {m.city ? ", " : " "}
-                                      {m.country}
-                                      <span className="ml-1">
-                                        {hostCountryFlag(m.country)}
-                                      </span>
-                                    </>
-                                  )}
-                                </p>
-                              )}
+                                <span className="text-slate-300 truncate">
+                                  {m.awayTeam?.code}
+                                </span>
+                              </span>
                             </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
+                            {(m.city || m.venue) && (
+                              <p className="text-center text-[10px] text-slate-500 mt-0.5 truncate">
+                                {m.venue}
+                                {m.venue && m.city ? " · " : ""}
+                                {m.city}
+                                {m.country && (
+                                  <>
+                                    {m.city ? ", " : " "}
+                                    {m.country}
+                                    <span className="ml-1">
+                                      {hostCountryFlag(m.country)}
+                                    </span>
+                                  </>
+                                )}
+                              </p>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </CardContent>
               </Card>
             );

@@ -24,7 +24,7 @@ export async function Nav() {
               ⚽ WC26
             </span>
           </Link>
-          <div className="flex items-center gap-5">
+          <div className="hidden md:flex items-center gap-5">
             <Link href="/tips" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
               Tips
             </Link>

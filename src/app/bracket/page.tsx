@@ -44,7 +44,7 @@ export default async function BracketPage() {
   return (
     <div className="space-y-8">
       {/* Hero header */}
-      <header className="relative text-center py-8 overflow-hidden">
+      <header className="relative text-center py-4 sm:py-8 overflow-hidden">
         <svg
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 w-full h-full"
@@ -93,8 +93,9 @@ export default async function BracketPage() {
       {/* Bracket grid — horizontally scrollable on narrow viewports. The grid
           gives each round its own column; later-round cells span multiple
           base rows and use align-self: center to slot between their feeders,
-          producing the classic tournament-bracket spatial alignment. */}
-      <div className="overflow-x-auto -mx-4 px-4 pb-4">
+          producing the classic tournament-bracket spatial alignment.
+          Mobile: snap-x mandatory so swipes settle on one round at a time. */}
+      <div className="overflow-x-auto -mx-4 px-4 pb-4 snap-x snap-mandatory scroll-smooth scroll-pl-4">
         <div
           className="grid gap-x-5 gap-y-2 min-w-[1100px]"
           style={{
@@ -103,11 +104,11 @@ export default async function BracketPage() {
             gridTemplateRows: "repeat(16, minmax(54px, auto))",
           }}
         >
-          {/* Column headers */}
+          {/* Column headers — also act as horizontal snap targets. */}
           {(["R32", "R16", "QF", "SF", "F"] as const).map((s, idx) => (
             <div
               key={s}
-              className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 pb-1 border-b"
+              className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 pb-1 border-b snap-start scroll-ml-4"
               style={{
                 gridColumn: idx + 1,
                 gridRow: "1 / 2",

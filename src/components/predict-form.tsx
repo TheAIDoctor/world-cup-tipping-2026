@@ -121,8 +121,13 @@ export function PredictForm({
               { label: "4️⃣ 4th Place", value: fourth, setter: setFourth },
             ] as { label: string; value: string; setter: (v: string) => void }[]
           ).map(({ label, value, setter }) => (
-            <div key={label} className="flex items-center gap-4">
-              <span className="text-sm font-medium w-28 shrink-0">{label}</span>
+            <div
+              key={label}
+              className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4"
+            >
+              <span className="text-sm font-medium sm:w-28 shrink-0">
+                {label}
+              </span>
               <Select
                 value={value}
                 onValueChange={(v) => {
@@ -131,7 +136,7 @@ export function PredictForm({
                 }}
                 disabled={locked}
               >
-                <SelectTrigger className="flex-1">
+                <SelectTrigger className="flex-1 w-full">
                   <SelectValue placeholder="Select a team…" />
                 </SelectTrigger>
                 <SelectContent>
@@ -157,8 +162,13 @@ export function PredictForm({
             { label: "2nd Scorer", value: scorer2, setter: setScorer2 },
             { label: "3rd Scorer", value: scorer3, setter: setScorer3 },
           ].map(({ label, value, setter }) => (
-            <div key={label} className="flex items-center gap-4">
-              <span className="text-sm font-medium w-28 shrink-0">{label}</span>
+            <div
+              key={label}
+              className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4"
+            >
+              <span className="text-sm font-medium sm:w-28 shrink-0">
+                {label}
+              </span>
               <Input
                 value={value}
                 onChange={(e) => {
