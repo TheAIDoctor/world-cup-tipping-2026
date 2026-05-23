@@ -108,7 +108,7 @@ export default async function BracketPage() {
           {(["R32", "R16", "QF", "SF", "F"] as const).map((s, idx) => (
             <div
               key={s}
-              className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 pb-1 border-b snap-start scroll-ml-4"
+              className="text-xs uppercase tracking-wider font-semibold text-slate-500 pb-1 border-b snap-start scroll-ml-4"
               style={{
                 gridColumn: idx + 1,
                 gridRow: "1 / 2",
@@ -178,7 +178,7 @@ export default async function BracketPage() {
       {/* 3rd-place playoff lives off to the side, smaller card. */}
       {thirdPlace && (
         <div className="max-w-md mx-auto">
-          <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 mb-2 text-center">
+          <p className="text-xs uppercase tracking-wider font-semibold text-slate-500 mb-2 text-center">
             🥉 Third-place playoff
           </p>
           <BracketCell match={thirdPlace} />
@@ -236,7 +236,7 @@ function BracketCell({
       }}
     >
       <div
-        className="px-2 py-1 text-[9px] uppercase tracking-wider font-mono flex items-center justify-between"
+        className="px-2 py-1 text-[10px] uppercase tracking-wider font-mono flex items-center justify-between"
         style={{
           color: trophy ? "#ffcd57" : "#8f9fa3",
           borderBottom: "1px solid rgba(193,15,255,0.08)",
@@ -266,7 +266,7 @@ function BracketCell({
       />
       {match.city && (
         <p
-          className="text-[9px] text-slate-500 px-2 py-1 truncate"
+          className="text-[10px] text-slate-400 px-2 py-1 truncate"
           style={{ borderTop: "1px solid rgba(193,15,255,0.08)" }}
         >
           {match.venue} · {match.city}{" "}
@@ -335,7 +335,7 @@ function BracketTeamRow({
         >
           {score}
           {penaltyScore !== null && (
-            <span className="text-[9px] font-mono ml-1 opacity-70">
+            <span className="text-[10px] font-mono ml-1 opacity-70">
               ({penaltyScore})
             </span>
           )}

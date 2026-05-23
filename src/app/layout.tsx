@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/nav";
 import { BottomTabBar } from "@/components/bottom-tab-bar";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -21,22 +22,30 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} dark h-full antialiased`}>
+    <html
+      lang="en"
+      className={`${inter.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
       <body className="cm-pitch-bg min-h-full flex flex-col text-foreground">
-        {/* Football-pattern body wash + brand radial gradients. The pattern
-            is a tiled hex panel SVG (see /public/pitch-pattern.svg) at very
-            low opacity so text stays readable. Hero-level imagery lives
-            inside pages where it can sit behind specific content. */}
-        <div className="relative z-10 flex flex-col min-h-full">
-          <Nav />
-          <main className="container mx-auto px-4 py-6 sm:py-8 max-w-6xl flex-1 pb-24 md:pb-8">
-            {children}
-          </main>
-          <footer className="text-center py-4 text-xs text-slate-600 border-t hidden md:block" style={{ borderColor: "rgba(193,15,255,0.1)" }}>
-            ⚽ CloudMarc World Cup 2026 · Built with ❤️ for the team
-          </footer>
-          <BottomTabBar />
-        </div>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+          <div className="relative z-10 flex flex-col min-h-full">
+            <Nav />
+            <main className="container mx-auto px-4 py-6 sm:py-8 max-w-6xl flex-1 pb-24 md:pb-8">
+              {children}
+            </main>
+            <footer
+              className="text-center py-4 text-xs border-t hidden md:block"
+              style={{
+                borderColor: "var(--cm-border-faint)",
+                color: "var(--cm-muted)",
+              }}
+            >
+              ⚽ CloudMarc World Cup 2026 · Built with ❤️ for the team
+            </footer>
+            <BottomTabBar />
+          </div>
+        </ThemeProvider>
       </body>
     </html>
   );

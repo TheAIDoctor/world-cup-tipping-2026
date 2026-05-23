@@ -145,7 +145,7 @@ export default async function LeaderboardPage() {
               className="divide-y"
               style={{ borderColor: "rgba(193,15,255,0.1)" }}
             >
-              <div className="grid grid-cols-[2.5rem_1fr_5rem] md:grid-cols-[3rem_1fr_4.5rem_4.5rem_4.5rem_5.5rem] gap-2 items-center px-3 sm:px-4 py-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
+              <div className="grid grid-cols-[2.5rem_1fr_5rem] md:grid-cols-[3rem_1fr_4.5rem_4.5rem_4.5rem_5.5rem] gap-2 items-center px-3 sm:px-4 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold">
                 <span>Rank</span>
                 <span>Player</span>
                 <span className="text-right hidden md:block">Tips</span>
@@ -195,7 +195,7 @@ export default async function LeaderboardPage() {
                         {player.name}
                       </p>
                       {player.email !== player.name && (
-                        <p className="text-[10px] text-muted-foreground truncate">
+                        <p className="text-xs text-muted-foreground truncate">
                           {player.email}
                         </p>
                       )}
@@ -216,7 +216,7 @@ export default async function LeaderboardPage() {
                           ? "#ffcd57"
                           : isPodium
                           ? "#ffe6a3"
-                          : "#fff",
+                          : "var(--cm-foreground)",
                         fontSize: isLeader ? "1.5rem" : "1.05rem",
                         lineHeight: 1,
                         textShadow: isLeader

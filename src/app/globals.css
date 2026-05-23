@@ -36,7 +36,7 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
   --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
+  --color-popover: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
   --radius-sm: calc(var(--radius) * 0.6);
@@ -48,41 +48,57 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ── Light theme (default) ──────────────────────────────────── */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --background: #f4f3ff;
+  --foreground: #1e1b4b;
+  --card: #ffffff;
+  --card-foreground: #1e1b4b;
+  --popover: #ffffff;
+  --popover-foreground: #1e1b4b;
+  --primary: #c10fff;
+  --primary-foreground: #ffffff;
+  --secondary: #ede9fe;
+  --secondary-foreground: #1e1b4b;
+  --muted: #f0eeff;
+  --muted-foreground: #6b7280;
+  --accent: #7c3aed;
+  --accent-foreground: #ffffff;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --border: #e5e2f7;
+  --input: #ede9fe;
+  --ring: #c10fff;
+  --chart-1: #c10fff;
+  --chart-2: #060097;
+  --chart-3: #ffcd57;
+  --chart-4: #67768e;
+  --chart-5: #1e293b;
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1e1b4b;
+  --sidebar-primary: #c10fff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ede9fe;
+  --sidebar-accent-foreground: #1e1b4b;
+  --sidebar-border: #e5e2f7;
+  --sidebar-ring: #c10fff;
+
+  /* CloudMarc surface tokens — light */
+  --cm-page-bg: #f4f3ff;
+  --cm-nav-bg: rgba(255, 255, 255, 0.95);
+  --cm-card-bg: rgba(255, 255, 255, 0.92);
+  --cm-card-deep: rgba(237, 233, 254, 0.7);
+  --cm-sticky-bg: rgba(244, 243, 255, 0.97);
+  --cm-border: rgba(193, 15, 255, 0.18);
+  --cm-border-faint: rgba(193, 15, 255, 0.08);
+  --cm-glow-1: rgba(193, 15, 255, 0.07);
+  --cm-glow-2: rgba(6, 0, 151, 0.07);
+  --cm-row-highlight: rgba(124, 58, 237, 0.06);
+  --cm-foreground: #1e1b4b;
+  --cm-muted: #6b7280;
 }
 
+/* ── Dark theme ─────────────────────────────────────────────── */
 .dark {
   /* CloudMarc brand palette */
   --cm-primary: #060097;
@@ -123,9 +139,23 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: rgba(193, 15, 255, 0.2);
   --sidebar-ring: #c10fff;
+
+  /* CloudMarc surface tokens — dark */
+  --cm-page-bg: #07003a;
+  --cm-nav-bg: rgba(7, 0, 58, 0.9);
+  --cm-card-bg: rgba(13, 0, 96, 0.5);
+  --cm-card-deep: rgba(13, 0, 96, 0.45);
+  --cm-sticky-bg: rgba(7, 0, 58, 0.85);
+  --cm-border: rgba(193, 15, 255, 0.2);
+  --cm-border-faint: rgba(193, 15, 255, 0.1);
+  --cm-glow-1: rgba(193, 15, 255, 0.18);
+  --cm-glow-2: rgba(6, 0, 151, 0.28);
+  --cm-row-highlight: rgba(255, 205, 87, 0.08);
+  --cm-foreground: #ffffff;
+  --cm-muted: #8f9fa3;
 }
 
-/* CloudMarc gradient utilities */
+/* ── CloudMarc gradient utilities ───────────────────────────── */
 .cm-gradient {
   background: linear-gradient(135deg, #060097 0%, #710183 50%, #c10fff 100%);
 }
@@ -136,23 +166,17 @@
   background-clip: text;
 }
 
-/* Subtle football hex-panel wash, tiled across the whole page. SVG lives
-   in /public/pitch-pattern.svg — see file for license note. The pattern
-   sits at very low opacity behind a CloudMarc radial wash so the brand
-   gradient still reads strongest near the hero. */
+/* Page background — themed via CSS variables so it adapts. */
 .cm-pitch-bg {
-  background-color: #07003a;
+  background-color: var(--cm-page-bg);
   background-image:
-    radial-gradient(ellipse at 20% 12%, rgba(193, 15, 255, 0.18) 0%, transparent 55%),
-    radial-gradient(ellipse at 80% 88%, rgba(6, 0, 151, 0.28) 0%, transparent 55%),
+    radial-gradient(ellipse at 20% 12%, var(--cm-glow-1) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 88%, var(--cm-glow-2) 0%, transparent 55%),
     url("/pitch-pattern.svg");
   background-repeat: no-repeat, no-repeat, repeat;
   background-size: auto, auto, 56px 96px;
 }
 
-/* Card surfaces that want a soft outer brand glow — used on the hero
-   stat row and key navigation cards. Keep the existing border via the
-   element's own style; this only adds the surrounding aura. */
 .cm-glow {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.04) inset,
@@ -160,7 +184,6 @@
     0 4px 18px -8px rgba(6, 0, 151, 0.55);
 }
 
-/* Stronger lift on hover for clickable cards. */
 .cm-card-hover {
   transition: transform 200ms ease, box-shadow 200ms ease;
 }
@@ -171,6 +194,27 @@
     0 6px 18px -8px rgba(6, 0, 151, 0.6);
 }
 
+/* ── Group-card standings grid ──────────────────────────────────────────────
+   Mobile: 4 visible columns (position, team, P, Pts).
+   sm+:    all 8 columns (position, team, P, W, D, L, GD, Pts).           */
+.gc-grid {
+  grid-template-columns: 1.25rem minmax(0,1fr) 2rem 2rem;
+}
+@media (min-width: 640px) {
+  .gc-grid {
+    grid-template-columns: 1rem minmax(0,1fr) 1.25rem 1.25rem 1.25rem 1.25rem 1.75rem 1.5rem;
+  }
+}
+
+/* ── Light-mode text overrides ──────────────────────────────────────────────
+   Many components use light text classes (text-white, text-slate-200/300)
+   that are invisible on a light background. These global rules remap them
+   to legible dark-purple equivalents when the .dark class is absent.      */
+html:not(.dark) .text-white       { color: #1e1b4b; }
+html:not(.dark) .text-slate-200   { color: #374151; }
+html:not(.dark) .text-slate-300   { color: #4b5563; }
+html:not(.dark) .text-slate-400   { color: #6b7280; }
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -180,5 +224,11 @@
   }
   html {
     @apply font-sans;
+  }
+  /* Keyboard focus ring — visible for keyboard users, hidden on mouse click */
+  :focus-visible {
+    outline: 2px solid #c10fff;
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 }
