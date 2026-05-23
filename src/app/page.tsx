@@ -3,12 +3,95 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import {
-  formatKickoffDate,
-  formatKickoffTime,
-  hostCountryFlag,
-  KICKOFF_TIME_ZONE_LABEL,
-} from "@/lib/format";
+import { hostCountryFlag } from "@/lib/format";
+import { GroupCard } from "@/components/group-card";
+
+type TeamRow = {
+  id: string;
+  name: string;
+  code: string;
+  flagEmoji: string;
+  group: string;
+};
+type MatchRow = {
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  homeScore: number | null;
+  awayScore: number | null;
+};
+type Standing = {
+  team: TeamRow;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDiff: number;
+  points: number;
+};
+
+function computeGroupStandings(
+  teams: TeamRow[],
+  matches: MatchRow[]
+): Standing[] {
+  const stats = new Map<string, Omit<Standing, "goalDiff" | "points">>(
+    teams.map((t) => [
+      t.id,
+      {
+        team: t,
+        played: 0,
+        won: 0,
+        drawn: 0,
+        lost: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+      },
+    ])
+  );
+  for (const m of matches) {
+    if (
+      m.homeScore === null ||
+      m.awayScore === null ||
+      !m.homeTeamId ||
+      !m.awayTeamId
+    ) {
+      continue;
+    }
+    const home = stats.get(m.homeTeamId);
+    const away = stats.get(m.awayTeamId);
+    if (!home || !away) continue;
+    home.played++;
+    away.played++;
+    home.goalsFor += m.homeScore;
+    home.goalsAgainst += m.awayScore;
+    away.goalsFor += m.awayScore;
+    away.goalsAgainst += m.homeScore;
+    if (m.homeScore > m.awayScore) {
+      home.won++;
+      away.lost++;
+    } else if (m.homeScore < m.awayScore) {
+      away.won++;
+      home.lost++;
+    } else {
+      home.drawn++;
+      away.drawn++;
+    }
+  }
+  return Array.from(stats.values())
+    .map((s) => ({
+      ...s,
+      goalDiff: s.goalsFor - s.goalsAgainst,
+      points: s.won * 3 + s.drawn,
+    }))
+    .sort(
+      (a, b) =>
+        b.points - a.points ||
+        b.goalDiff - a.goalDiff ||
+        b.goalsFor - a.goalsFor ||
+        a.team.name.localeCompare(b.team.name)
+    );
+}
 
 export default async function HomePage() {
   const session = await auth();
@@ -38,6 +121,39 @@ export default async function HomePage() {
     (matchesByGroup[g] ??= []).push(m);
   }
   const groupLetters = Object.keys(teamsByGroup).sort();
+
+  // Standings per group computed from any matches with a recorded 90' result.
+  // Tiebreak chain: points → goal difference → goals for → name (alphabetical).
+  // We omit head-to-head — uncommon to need it pre-final-matchday and adds
+  // notable complexity. Knockout penalties are intentionally ignored: this
+  // table reflects the group-stage 90' record only.
+  const standingsByGroup: Record<string, Standing[]> = {};
+  for (const g of groupLetters) {
+    standingsByGroup[g] = computeGroupStandings(
+      teamsByGroup[g] ?? [],
+      matchesByGroup[g] ?? []
+    );
+  }
+
+  // Venue footprint per group — which host countries and how many cities
+  // the group's six matches are spread across. Surfaces "this whole group
+  // plays in Mexico" vs "this group bounces across 4 US cities".
+  const venuesByGroup: Record<
+    string,
+    { countries: string[]; cityCount: number }
+  > = {};
+  for (const g of groupLetters) {
+    const countries = new Set<string>();
+    const cities = new Set<string>();
+    for (const m of matchesByGroup[g] ?? []) {
+      if (m.country) countries.add(m.country);
+      if (m.city) cities.add(m.city);
+    }
+    venuesByGroup[g] = {
+      countries: Array.from(countries).sort(),
+      cityCount: cities.size,
+    };
+  }
 
   const tournamentStart = new Date("2026-06-11T00:00:00Z");
   const tournamentEnd = new Date("2026-07-19T00:00:00Z");
@@ -113,7 +229,7 @@ export default async function HomePage() {
           </g>
         </svg>
         <div className="relative">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold mb-2 max-w-[90vw]"
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-2 max-w-[90vw]"
             style={{ background: "rgba(193,15,255,0.15)", color: "#c10fff", border: "1px solid rgba(193,15,255,0.3)" }}>
             🌎 USA · Mexico · Canada — Jun 11 to Jul 19, 2026
           </div>
@@ -127,7 +243,7 @@ export default async function HomePage() {
           </p>
           {!session ? (
             <div className="pt-4">
-              <Link href="/api/auth/signin">
+              <Link href="/signin">
                 <Button size="lg" className="text-white font-bold px-8 py-6 text-lg rounded-xl shadow-lg"
                   style={{ background: "linear-gradient(135deg, #060097, #c10fff)" }}>
                   Join the Competition →
@@ -147,7 +263,7 @@ export default async function HomePage() {
           { label: "Tips Submitted", value: totalTips, icon: "📋" },
           { label: timeInfo.label, value: timeInfo.value, icon: "⏱️" },
         ].map((stat) => (
-          <Card key={stat.label} className="border cm-glow" style={{ background: "rgba(13,0,96,0.5)", borderColor: "rgba(193,15,255,0.2)" }}>
+          <Card key={stat.label} className="border cm-glow" style={{ background: "var(--cm-card-bg)", borderColor: "var(--cm-border)" }}>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -248,139 +364,47 @@ export default async function HomePage() {
             <p className="text-sm text-slate-400 mt-1">
               48 teams · 12 groups · 72 group-stage matches
             </p>
+            <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
+              <span
+                className="inline-block w-2.5 h-2.5 rounded-sm"
+                style={{ background: "rgba(255,205,87,0.4)" }}
+              />
+              Top 2 advance directly · best 8 third-placed teams complete the R32
+            </p>
           </div>
-          <Link href="/tips">
+          <Link href="/schedule">
             <Button variant="outline" size="sm">
-              Tip these matches →
+              View full schedule →
             </Button>
           </Link>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {groupLetters.map((g) => {
-            const teams = teamsByGroup[g] ?? [];
-            const matches = matchesByGroup[g] ?? [];
+            const standings = standingsByGroup[g] ?? [];
+            const venues = venuesByGroup[g];
+            // Serialise Date → ISO string so the client component can cross
+            // the RSC boundary without a "non-serialisable value" error.
+            const serialisedMatches = (matchesByGroup[g] ?? []).map((m) => ({
+              id: m.id,
+              matchNumber: m.matchNumber,
+              date: m.date.toISOString(),
+              homeTeam: m.homeTeam
+                ? { name: m.homeTeam.name, code: m.homeTeam.code, flagEmoji: m.homeTeam.flagEmoji }
+                : null,
+              awayTeam: m.awayTeam
+                ? { name: m.awayTeam.name, code: m.awayTeam.code, flagEmoji: m.awayTeam.flagEmoji }
+                : null,
+              homeScore: m.homeScore,
+              awayScore: m.awayScore,
+            }));
             return (
-              <Card
+              <GroupCard
                 key={g}
-                className="border py-3 gap-2"
-                style={{
-                  background: "rgba(13,0,96,0.5)",
-                  borderColor: "rgba(193,15,255,0.2)",
-                }}
-              >
-                <CardHeader className="px-3 pb-0">
-                  <CardTitle className="flex items-center gap-2 text-sm">
-                    <span
-                      className="inline-flex items-center justify-center w-6 h-6 rounded font-bold text-xs"
-                      style={{
-                        background: "linear-gradient(135deg, #060097, #c10fff)",
-                        color: "#fff",
-                      }}
-                    >
-                      {g}
-                    </span>
-                    <span>Group {g}</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 space-y-2">
-                  <ul className="space-y-0.5">
-                    {teams.map((t) => (
-                      <li
-                        key={t.id}
-                        className="flex items-center gap-2 text-[13px]"
-                      >
-                        <span className="text-base leading-none">
-                          {t.flagEmoji}
-                        </span>
-                        <span className="text-slate-200 truncate">{t.name}</span>
-                        <span className="ml-auto text-[10px] font-mono text-slate-500 shrink-0">
-                          {t.code}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <ul
-                    className="space-y-1 pt-2 border-t"
-                    style={{ borderColor: "rgba(193,15,255,0.15)" }}
-                  >
-                    {matches.map((m) => {
-                      const played =
-                        m.homeScore !== null && m.awayScore !== null;
-                      const dateLabel = formatKickoffDate(m.date);
-                      const timeLabel = formatKickoffTime(m.date);
-                      return (
-                        <li key={m.id}>
-                          <div
-                            className="rounded-md border px-2 py-1 leading-tight"
-                            style={{
-                              background: "rgba(7,0,58,0.6)",
-                              borderColor: "rgba(193,15,255,0.12)",
-                            }}
-                          >
-                            <p className="text-center text-[10px] font-mono text-slate-500">
-                              {dateLabel} · {timeLabel} {KICKOFF_TIME_ZONE_LABEL}
-                            </p>
-                            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-xs mt-0.5">
-                              <span className="flex items-center gap-1 justify-end min-w-0">
-                                <span className="text-slate-300 truncate">
-                                  {m.homeTeam?.code}
-                                </span>
-                                <span className="text-base leading-none shrink-0">
-                                  {m.homeTeam?.flagEmoji}
-                                </span>
-                              </span>
-                              <span
-                                className={
-                                  played
-                                    ? "font-extrabold text-base tabular-nums leading-none px-1"
-                                    : "text-slate-500 text-sm px-1"
-                                }
-                                style={
-                                  played
-                                    ? {
-                                        color: "#ffcd57",
-                                        textShadow:
-                                          "0 0 12px rgba(255,205,87,0.35)",
-                                      }
-                                    : undefined
-                                }
-                              >
-                                {played
-                                  ? `${m.homeScore}–${m.awayScore}`
-                                  : "v"}
-                              </span>
-                              <span className="flex items-center gap-1 justify-start min-w-0">
-                                <span className="text-base leading-none shrink-0">
-                                  {m.awayTeam?.flagEmoji}
-                                </span>
-                                <span className="text-slate-300 truncate">
-                                  {m.awayTeam?.code}
-                                </span>
-                              </span>
-                            </div>
-                            {(m.city || m.venue) && (
-                              <p className="text-center text-[10px] text-slate-500 mt-0.5 truncate">
-                                {m.venue}
-                                {m.venue && m.city ? " · " : ""}
-                                {m.city}
-                                {m.country && (
-                                  <>
-                                    {m.city ? ", " : " "}
-                                    {m.country}
-                                    <span className="ml-1">
-                                      {hostCountryFlag(m.country)}
-                                    </span>
-                                  </>
-                                )}
-                              </p>
-                            )}
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </CardContent>
-              </Card>
+                group={g}
+                standings={standings}
+                matches={serialisedMatches}
+                venues={venues ?? { countries: [], cityCount: 0 }}
+              />
             );
           })}
         </div>
@@ -396,7 +420,7 @@ export default async function HomePage() {
           ].map((card) => (
             <Link key={card.href} href={card.href}>
               <Card className="h-full cursor-pointer cm-card-hover"
-                style={{ background: "rgba(13,0,96,0.5)", borderColor: "rgba(193,15,255,0.2)" }}>
+                style={{ background: "var(--cm-card-bg)", borderColor: "var(--cm-border)" }}>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <span>{card.icon}</span>

@@ -2,13 +2,20 @@ import Link from "next/link";
 import Image from "next/image";
 import { auth, signOut } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export async function Nav() {
   const session = await auth();
   const isAdmin = (session?.user as { role?: string })?.role === "admin";
 
   return (
-    <nav className="border-b sticky top-0 z-50 backdrop-blur-md" style={{ borderColor: "rgba(193,15,255,0.2)", background: "rgba(7,0,58,0.9)" }}>
+    <nav
+      className="border-b sticky top-0 z-50 backdrop-blur-md"
+      style={{
+        borderColor: "var(--cm-border)",
+        background: "var(--cm-nav-bg)",
+      }}
+    >
       <div className="container mx-auto px-4 max-w-6xl flex items-center justify-between h-16">
         <div className="flex items-center gap-8">
           <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
@@ -25,18 +32,26 @@ export async function Nav() {
             </span>
           </Link>
           <div className="hidden md:flex items-center gap-5">
-            <Link href="/tips" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
+            <Link href="/tips" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Tips
             </Link>
-            <Link href="/predict" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
+            <Link href="/predict" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Predict
             </Link>
-            <Link href="/bracket" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
+            <Link href="/schedule" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+              Schedule
+            </Link>
+            <Link href="/bracket" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Bracket
             </Link>
-            <Link href="/leaderboard" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
+            <Link href="/leaderboard" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Leaderboard
             </Link>
+            {session?.user && (
+              <Link href="/my-tips" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                My Tips
+              </Link>
+            )}
             {isAdmin && (
               <Link href="/admin" className="text-sm font-medium transition-colors" style={{ color: "#ffcd57" }}>
                 Admin
@@ -45,9 +60,10 @@ export async function Nav() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <ThemeToggle />
           {session?.user ? (
             <>
-              <span className="text-sm text-slate-400 hidden sm:block">
+              <span className="text-sm text-muted-foreground hidden sm:block">
                 {session.user.email}
               </span>
               <form
@@ -57,13 +73,13 @@ export async function Nav() {
                 }}
               >
                 <Button variant="outline" size="sm" type="submit"
-                  className="border-purple-500/40 text-slate-300 hover:bg-purple-900/30">
+                  className="border-purple-500/40 text-muted-foreground hover:bg-purple-900/30">
                   Sign Out
                 </Button>
               </form>
             </>
           ) : (
-            <Link href="/api/auth/signin">
+            <Link href="/signin">
               <Button size="sm" className="text-white font-semibold"
                 style={{ background: "linear-gradient(135deg, #060097, #c10fff)" }}>
                 Sign In
