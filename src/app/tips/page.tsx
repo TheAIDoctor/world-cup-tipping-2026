@@ -6,81 +6,86 @@ import { TipsForm } from "@/components/tips-form";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { formatKickoff } from "@/lib/format";
+import { isMatchLocked, formatLockTime } from "@/lib/tips-lock";
+import { STAGE_LABELS, STAGE_ORDER } from "@/lib/constants";
 
-const KNOCKOUT_ORDER = ["R32", "R16", "QF", "SF", "3P", "F"] as const;
-const KNOCKOUT_LABELS: Record<string, string> = {
-  R32: "Round of 32",
-  R16: "Round of 16",
-  QF: "Quarter-finals",
-  SF: "Semi-finals",
-  "3P": "Third-place playoff",
-  F: "Final",
-};
+const KNOCKOUT_ORDER = STAGE_ORDER.filter((s) => s !== "group");
 
 export default async function TipsPage() {
   const session = await auth();
 
-  const matches = await prisma.match.findMany({
-    include: {
-      homeTeam: true,
-      awayTeam: true,
-    },
-    orderBy: [{ date: "asc" }, { matchNumber: "asc" }],
-  });
+  const [matches, userTipsRaw] = await Promise.all([
+    prisma.match.findMany({
+      select: {
+        id: true,
+        matchNumber: true,
+        stage: true,
+        date: true,
+        homeScore: true,
+        awayScore: true,
+        penaltyHomeScore: true,
+        penaltyAwayScore: true,
+        homeTeamId: true,
+        awayTeamId: true,
+        homeTeam: { select: { name: true, code: true, flagEmoji: true, group: true } },
+        awayTeam: { select: { name: true, code: true, flagEmoji: true, group: true } },
+      },
+      orderBy: [{ date: "asc" }, { matchNumber: "asc" }],
+    }),
+    session?.user?.id
+      ? prisma.matchTip.findMany({
+          where: { userId: session.user.id },
+          select: { matchId: true, homeScore: true, awayScore: true },
+        })
+      : Promise.resolve([]),
+  ]);
 
-  let userTips: Record<string, { homeScore: number; awayScore: number }> = {};
-  if (session?.user?.id) {
-    const tips = await prisma.matchTip.findMany({
-      where: { userId: session.user.id },
-    });
-    userTips = Object.fromEntries(
-      tips.map((t) => [t.matchId, { homeScore: t.homeScore, awayScore: t.awayScore }])
-    );
-  }
+  const userTips = Object.fromEntries(
+    userTipsRaw.map((t) => [t.matchId, { homeScore: t.homeScore, awayScore: t.awayScore }])
+  );
 
-  // Group-stage matches grouped by group letter A..L; knockout matches by stage.
-  // Knockout teams are NULL until admin assigns them, so we can't derive group
-  // from teams for those — we group by Match.stage.
+  const now = new Date();
+
+  // Partition matches into group (by group letter) and knockout (by stage).
   const groupStageMatches: Record<string, typeof matches> = {};
   const knockoutByStage: Record<string, typeof matches> = {};
   for (const match of matches) {
     if (match.stage === "group") {
-      const group = match.homeTeam?.group || match.awayTeam?.group || "Other";
-      if (!groupStageMatches[group]) groupStageMatches[group] = [];
-      groupStageMatches[group].push(match);
+      const group = match.homeTeam?.group ?? match.awayTeam?.group ?? "?";
+      (groupStageMatches[group] ??= []).push(match);
     } else {
-      if (!knockoutByStage[match.stage]) knockoutByStage[match.stage] = [];
-      knockoutByStage[match.stage].push(match);
+      (knockoutByStage[match.stage] ??= []).push(match);
     }
   }
 
   const sortedGroups = Object.keys(groupStageMatches).sort();
   const activeKnockoutStages = KNOCKOUT_ORDER.filter((s) => knockoutByStage[s]?.length);
-  const now = new Date();
 
   const renderMatchCard = (match: (typeof matches)[number]) => {
-    const teamsAssigned = !!match.homeTeam && !!match.awayTeam;
-    const locked = match.date <= now || !teamsAssigned;
+    const teamsAssigned = !!match.homeTeamId && !!match.awayTeamId;
+    const locked = isMatchLocked(match.date, teamsAssigned, now);
     const existingTip = userTips[match.id];
+    const hasResult = match.homeScore !== null && match.awayScore !== null;
+
     return (
-      <Card key={match.id} id={`match-${match.matchNumber}`} className={"scroll-mt-20 " + (locked ? "opacity-70" : "")}>
+      <Card
+        key={match.id}
+        id={`match-${match.matchNumber}`}
+        className={"scroll-mt-20 " + (locked ? "opacity-70" : "")}
+      >
         <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-1">
             <span className="text-xs text-muted-foreground">
               Match #{match.matchNumber}
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {!teamsAssigned && (
-                <Badge variant="outline" className="text-xs">
-                  Teams TBD
-                </Badge>
+                <Badge variant="outline" className="text-xs">Teams TBD</Badge>
               )}
               {teamsAssigned && locked && (
-                <Badge variant="secondary" className="text-xs">
-                  🔒 Locked
-                </Badge>
+                <Badge variant="secondary" className="text-xs">🔒 Locked</Badge>
               )}
-              {match.homeScore !== null && match.awayScore !== null && (
+              {hasResult && (
                 <Badge className="text-xs">
                   Result: {match.homeScore}–{match.awayScore}
                   {match.penaltyHomeScore !== null && match.penaltyAwayScore !== null && (
@@ -90,23 +95,18 @@ export default async function TipsPage() {
               )}
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {formatKickoff(match.date)}
-          </p>
+          <p className="text-xs text-muted-foreground">{formatKickoff(match.date)}</p>
+          {teamsAssigned && !locked && (
+            <p className="text-[11px]" style={{ color: "var(--cm-muted)" }}>
+              {formatLockTime(match.date)}
+            </p>
+          )}
         </CardHeader>
         <CardContent>
           <TipsForm
             matchId={match.id}
-            homeTeam={
-              match.homeTeam
-                ? `${match.homeTeam.flagEmoji} ${match.homeTeam.name}`
-                : "TBD"
-            }
-            awayTeam={
-              match.awayTeam
-                ? `${match.awayTeam.flagEmoji} ${match.awayTeam.name}`
-                : "TBD"
-            }
+            homeTeam={match.homeTeam ? `${match.homeTeam.flagEmoji} ${match.homeTeam.name}` : "TBD"}
+            awayTeam={match.awayTeam ? `${match.awayTeam.flagEmoji} ${match.awayTeam.name}` : "TBD"}
             existingHomeScore={existingTip?.homeScore}
             existingAwayScore={existingTip?.awayScore}
             locked={locked}
@@ -122,12 +122,12 @@ export default async function TipsPage() {
         <div>
           <h1 className="text-2xl font-bold">📋 Match Tips</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Predict scores for each match. Tips lock when the match kicks off.
-            Knockout tips are scored on the 90-minute result — penalty
-            shootouts only decide who advances.
+            Predict scores for each match. Tips lock{" "}
+            <strong>24 hours before kickoff</strong> (shown in Melbourne time).
+            Knockout tips score on the 90-minute result only.
           </p>
         </div>
-        <div className="text-right text-sm text-muted-foreground">
+        <div className="text-right text-sm text-muted-foreground hidden sm:block">
           <p>5 pts — exact score</p>
           <p>3 pts — correct result</p>
         </div>
@@ -136,10 +136,8 @@ export default async function TipsPage() {
       {!session && (
         <Card>
           <CardContent className="py-8 text-center">
-            <p className="text-muted-foreground mb-4">
-              Sign in to submit your match tips.
-            </p>
-            <Link href="/api/auth/signin">
+            <p className="text-muted-foreground mb-4">Sign in to submit your match tips.</p>
+            <Link href="/signin">
               <Button>Sign In</Button>
             </Link>
           </CardContent>
@@ -168,7 +166,7 @@ export default async function TipsPage() {
               {activeKnockoutStages.map((stage) => (
                 <div key={stage}>
                   <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                    <Badge variant="outline">{KNOCKOUT_LABELS[stage]}</Badge>
+                    <Badge variant="outline">{STAGE_LABELS[stage]}</Badge>
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {knockoutByStage[stage].map(renderMatchCard)}

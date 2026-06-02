@@ -4,18 +4,12 @@ import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminResultForm } from "@/components/admin-result-form";
+import { AdminTournamentForm } from "@/components/admin-tournament-form";
+import { AdminPasswordResetForm } from "@/components/admin-password-reset-form";
 import { formatKickoff, formatKickoffDate } from "@/lib/format";
+import { STAGE_LABELS, STAGE_ORDER, TOURNAMENT_RESULT_ID } from "@/lib/constants";
 
-const KNOCKOUT_ORDER = ["R32", "R16", "QF", "SF", "3P", "F"] as const;
-const STAGE_LABELS: Record<string, string> = {
-  group: "Group",
-  R32: "Round of 32",
-  R16: "Round of 16",
-  QF: "Quarter-finals",
-  SF: "Semi-finals",
-  "3P": "Third-place playoff",
-  F: "Final",
-};
+const KNOCKOUT_ORDER = STAGE_ORDER.filter((s) => s !== "group");
 
 export default async function AdminPage() {
   const session = await auth();
@@ -23,16 +17,34 @@ export default async function AdminPage() {
     redirect("/");
   }
 
-  const [matches, allTeams] = await Promise.all([
+  const [matches, allTeams, allUsers, tournamentResult] = await Promise.all([
     prisma.match.findMany({
-      include: {
-        homeTeam: true,
-        awayTeam: true,
+      select: {
+        id: true,
+        matchNumber: true,
+        stage: true,
+        date: true,
+        homeScore: true,
+        awayScore: true,
+        penaltyHomeScore: true,
+        penaltyAwayScore: true,
+        homeTeamId: true,
+        awayTeamId: true,
+        homeTeam: { select: { id: true, name: true, flagEmoji: true, group: true } },
+        awayTeam: { select: { id: true, name: true, flagEmoji: true, group: true } },
         tips: { select: { id: true } },
       },
       orderBy: [{ date: "asc" }, { matchNumber: "asc" }],
     }),
-    prisma.team.findMany({ orderBy: [{ group: "asc" }, { name: "asc" }] }),
+    prisma.team.findMany({
+      select: { id: true, name: true, flagEmoji: true, group: true },
+      orderBy: [{ group: "asc" }, { name: "asc" }],
+    }),
+    prisma.user.findMany({
+      select: { id: true, email: true, name: true, role: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.tournamentResult.findUnique({ where: { id: TOURNAMENT_RESULT_ID } }),
   ]);
 
   const teamOptions = allTeams.map((t) => ({
@@ -263,6 +275,30 @@ export default async function AdminPage() {
           </div>
         </section>
       )}
+
+      {/* Tournament outcome scoring */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">🏆 Tournament Results</h2>
+        <p className="text-sm text-muted-foreground mb-3">
+          Enter the actual tournament finalists and top scorers. Points are calculated live once saved.
+          Champion = 15 pts, Runner-up = 10, 3rd = 5, 4th = 3. Each correct top scorer = 5 pts.
+        </p>
+        <AdminTournamentForm
+          teams={allTeams.map((t) => ({ id: t.id, name: t.name, flagEmoji: t.flagEmoji }))}
+          existing={tournamentResult ?? undefined}
+        />
+      </section>
+
+      {/* User management: password reset */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">👥 User Password Reset</h2>
+        <p className="text-sm text-muted-foreground mb-3">
+          Reset any player&apos;s password. They can change it themselves in their profile once logged in.
+        </p>
+        <AdminPasswordResetForm
+          users={allUsers.map((u) => ({ email: u.email, name: u.name, role: u.role }))}
+        />
+      </section>
     </div>
   );
 }

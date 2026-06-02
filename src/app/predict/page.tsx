@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PredictForm } from "@/components/predict-form";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { PREDICTION_DEADLINE } from "@/lib/constants";
 
 export default async function PredictPage() {
   const session = await auth();
@@ -26,8 +27,7 @@ export default async function PredictPage() {
     ]);
   }
 
-  const DEADLINE = new Date("2026-06-11T00:00:00Z");
-  const locked = new Date() > DEADLINE;
+  const locked = new Date() > PREDICTION_DEADLINE;
 
   return (
     <div className="space-y-6">

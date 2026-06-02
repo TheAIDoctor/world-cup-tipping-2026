@@ -7,14 +7,12 @@ import { ThemeToggle } from "@/components/theme-toggle";
 export async function Nav() {
   const session = await auth();
   const isAdmin = (session?.user as { role?: string })?.role === "admin";
+  const displayName = session?.user?.name || session?.user?.email?.split("@")[0] || "";
 
   return (
     <nav
       className="border-b sticky top-0 z-50 backdrop-blur-md"
-      style={{
-        borderColor: "var(--cm-border)",
-        background: "var(--cm-nav-bg)",
-      }}
+      style={{ borderColor: "var(--cm-border)", background: "var(--cm-nav-bg)" }}
     >
       <div className="container mx-auto px-4 max-w-6xl flex items-center justify-between h-16">
         <div className="flex items-center gap-8">
@@ -63,9 +61,13 @@ export async function Nav() {
           <ThemeToggle />
           {session?.user ? (
             <>
-              <span className="text-sm text-muted-foreground hidden sm:block">
-                {session.user.email}
-              </span>
+              <Link
+                href="/profile"
+                className="text-sm text-muted-foreground hidden sm:block hover:text-foreground transition-colors"
+                title="Account settings"
+              >
+                {displayName}
+              </Link>
               <form
                 action={async () => {
                   "use server";

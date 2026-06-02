@@ -47,3 +47,6 @@ prisma/dev.db-journal
 # claude worktrees / local settings
 .claude/worktrees/
 .claude/settings.local.json
+
+# credentials / API key exports — never commit these
+*.csv

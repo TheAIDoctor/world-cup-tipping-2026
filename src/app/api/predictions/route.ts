@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
-const DEADLINE = new Date("2026-06-11T00:00:00Z");
+import { PREDICTION_DEADLINE as DEADLINE } from "@/lib/constants";
 
 export async function POST(req: Request) {
   const session = await auth();

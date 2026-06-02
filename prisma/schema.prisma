@@ -11,6 +11,7 @@ model User {
   id                   String                @id @default(cuid())
   name                 String?
   email                String                @unique
+  password             String?
   emailVerified        DateTime?
   image                String?
   role                 String                @default("player")
@@ -130,4 +131,17 @@ model TopScorerPrediction {
   scorer1 String
   scorer2 String
   scorer3 String
+}
+
+// Single-row table storing the actual tournament outcome for scoring predictions.
+// Admin sets this after each event resolves. Identified by a fixed id "singleton".
+model TournamentResult {
+  id         String  @id @default(cuid())
+  champion   String?
+  runnerUp   String?
+  third      String?
+  fourth     String?
+  topScorer1 String?
+  topScorer2 String?
+  topScorer3 String?
 }

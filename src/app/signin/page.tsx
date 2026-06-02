@@ -3,30 +3,29 @@
 import { signIn, auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 
 interface SignInPageProps {
-  searchParams: Promise<{ error?: string; callbackUrl?: string }>;
+  searchParams: Promise<{ error?: string; callbackUrl?: string; registered?: string }>;
 }
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
-  // Already signed in → go home
   const session = await auth();
   if (session?.user) redirect("/");
 
   const params = await searchParams;
   const error = params.error;
   const callbackUrl = params.callbackUrl ?? "/";
+  const registered = params.registered === "1";
 
   const errorMessages: Record<string, string> = {
-    OAuthAccountNotLinked: "This email is already associated with a different sign-in method.",
-    EmailSignin: "There was a problem sending the magic link. Please try again.",
+    CredentialsSignin: "Incorrect email or password. Please try again.",
     Default: "Something went wrong. Please try again.",
   };
   const errorMsg = error ? (errorMessages[error] ?? errorMessages.Default) : null;
 
   return (
     <div className="min-h-[80vh] flex flex-col items-center justify-center px-4">
-      {/* Glow backdrop */}
       <div
         className="pointer-events-none fixed inset-0 -z-10"
         aria-hidden="true"
@@ -38,12 +37,8 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
 
       <div
         className="w-full max-w-sm rounded-2xl border p-8 space-y-6 cm-glow"
-        style={{
-          background: "var(--cm-card-bg)",
-          borderColor: "var(--cm-border)",
-        }}
+        style={{ background: "var(--cm-card-bg)", borderColor: "var(--cm-border)" }}
       >
-        {/* Logo */}
         <div className="flex flex-col items-center gap-3">
           <Image
             src="/cloudmarc-logo.png"
@@ -63,13 +58,20 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           </div>
         </div>
 
-        {/* Divider */}
-        <div
-          className="border-t"
-          style={{ borderColor: "var(--cm-border-faint)" }}
-        />
+        <div className="border-t" style={{ borderColor: "var(--cm-border-faint)" }} />
 
-        {/* Error message */}
+        {registered && (
+          <div
+            className="text-sm text-center px-4 py-3 rounded-lg border"
+            style={{
+              background: "rgba(134,239,172,0.1)",
+              borderColor: "rgba(134,239,172,0.35)",
+              color: "rgb(134 239 172)",
+            }}
+          >
+            Account created! Sign in below.
+          </div>
+        )}
         {errorMsg && (
           <div
             className="text-sm text-center px-4 py-3 rounded-lg border"
@@ -83,13 +85,12 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           </div>
         )}
 
-        {/* Sign-in form */}
         <form
           action={async (formData: FormData) => {
             "use server";
-            const email = formData.get("email") as string;
-            await signIn("resend", {
-              email,
+            await signIn("credentials", {
+              email: formData.get("email"),
+              password: formData.get("password"),
               redirectTo: callbackUrl,
             });
           }}
@@ -101,7 +102,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
               className="text-xs font-semibold uppercase tracking-wider"
               style={{ color: "var(--cm-muted)" }}
             >
-              Work email
+              Email
             </label>
             <input
               id="email"
@@ -116,7 +117,30 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
                 background: "var(--cm-card-deep, rgba(13,0,96,0.3))",
                 borderColor: "var(--cm-border)",
                 color: "var(--cm-foreground)",
-                // ring color handled by focus-visible override in globals.css
+              }}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label
+              htmlFor="password"
+              className="text-xs font-semibold uppercase tracking-wider"
+              style={{ color: "var(--cm-muted)" }}
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              autoComplete="current-password"
+              placeholder="••••••••"
+              className="w-full rounded-lg px-4 py-3 text-sm font-medium border outline-none transition-all focus:ring-2 ring-offset-0"
+              style={{
+                background: "var(--cm-card-deep, rgba(13,0,96,0.3))",
+                borderColor: "var(--cm-border)",
+                color: "var(--cm-foreground)",
               }}
             />
           </div>
@@ -124,22 +148,23 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           <button
             type="submit"
             className="w-full py-3 rounded-lg text-sm font-bold text-white transition-opacity hover:opacity-90 active:scale-[0.98]"
-            style={{
-              background: "linear-gradient(135deg, #060097, #c10fff)",
-            }}
+            style={{ background: "linear-gradient(135deg, #060097, #c10fff)" }}
           >
-            Send magic link ✉️
+            Sign In →
           </button>
         </form>
 
-        {/* Footer note */}
-        <p
-          className="text-center text-xs leading-relaxed"
-          style={{ color: "var(--cm-muted)" }}
-        >
-          We&apos;ll email you a one-click sign-in link — no password needed.
-          <br />
-          Only CloudMarc team members can access this app.
+        <p className="text-center text-xs leading-relaxed" style={{ color: "var(--cm-muted)" }}>
+          Don&apos;t have an account?{" "}
+          <Link
+            href="/signup"
+            className="font-semibold underline-offset-2 hover:underline"
+            style={{ color: "#c10fff" }}
+          >
+            Create one
+          </Link>
+          {" · "}
+          <span>Forgot your password? Ask an admin to reset it.</span>
         </p>
       </div>
     </div>
