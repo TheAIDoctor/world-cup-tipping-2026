@@ -103,6 +103,20 @@ export async function POST(req: Request) {
     }
   }
 
+  // Trigger Cloudy's post-match reaction (fire-and-forget, non-blocking)
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret) {
+    const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+    fetch(`${baseUrl}/api/cloudy/react-to-result`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-cron-secret": cronSecret,
+      },
+      body: JSON.stringify({ matchId }),
+    }).catch(() => { /* non-critical */ });
+  }
+
   return NextResponse.json({ ok: true });
 }
 

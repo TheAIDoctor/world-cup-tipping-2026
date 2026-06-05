@@ -4,6 +4,7 @@ import "./globals.css";
 import { Nav } from "@/components/nav";
 import { BottomTabBar } from "@/components/bottom-tab-bar";
 import { ThemeProvider } from "@/components/theme-provider";
+import { BugReportButton } from "@/components/bug-report-button";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -14,6 +15,11 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "⚽ CloudMarc World Cup 2026",
   description: "CloudMarc internal World Cup 2026 tipping competition",
+  other: {
+    // Prevent ALL browser auto-translation (covers Chrome on Android/iOS,
+    // Samsung Internet, Comet, and any browser that checks this meta tag)
+    "google": "notranslate",
+  },
 };
 
 export default function RootLayout({
@@ -24,6 +30,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      translate="no"
       className={`${inter.variable} h-full antialiased`}
       suppressHydrationWarning
     >
@@ -43,6 +50,7 @@ export default function RootLayout({
             >
               ⚽ CloudMarc World Cup 2026 · Built with ❤️ for the team
             </footer>
+            <BugReportButton />
             <BottomTabBar />
           </div>
         </ThemeProvider>

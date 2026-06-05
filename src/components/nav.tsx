@@ -22,7 +22,7 @@ export async function Nav() {
               alt="CloudMarc"
               width={120}
               height={32}
-              className="h-8 w-auto object-contain"
+              className="object-contain"
               priority
             />
             <span className="font-bold text-sm hidden sm:block" style={{ color: "#ffcd57" }}>

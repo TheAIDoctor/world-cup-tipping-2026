@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { SignupForm } from "@/components/signup-form";
+import { ALLOWED_SIGNUP_EMAIL_DOMAIN } from "@/lib/constants";
 
 export default async function SignupPage() {
   const session = await auth();
@@ -30,6 +31,7 @@ export default async function SignupPage() {
             width={140}
             height={38}
             className="h-9 w-auto object-contain"
+            style={{ width: "auto" }}
             priority
           />
           <div className="text-center">
@@ -37,7 +39,8 @@ export default async function SignupPage() {
               <span className="cm-text-gradient">Join the Competition</span>
             </h1>
             <p className="text-sm mt-1" style={{ color: "var(--cm-muted)" }}>
-              Create your CloudMarc WC26 account
+              Use your @{ALLOWED_SIGNUP_EMAIL_DOMAIN} email to create your CloudMarc WC26
+              account
             </p>
           </div>
         </div>

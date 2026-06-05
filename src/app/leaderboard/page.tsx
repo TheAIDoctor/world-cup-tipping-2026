@@ -136,8 +136,16 @@ export default async function LeaderboardPage() {
                       {medal ?? idx + 1}
                     </span>
                     <div className="min-w-0">
-                      <p className={"truncate " + (isLeader ? "font-bold text-white" : "font-medium")}>
+                      <p className={"truncate flex items-center gap-1.5 " + (isLeader ? "font-bold text-white" : "font-medium")}>
                         {player.name}
+                        {player.isBot && (
+                          <span
+                            className="shrink-0 text-xs px-1.5 py-0 rounded-full font-bold"
+                            style={{ background: "rgba(0,180,216,0.2)", color: "#00b4d8", fontSize: "10px" }}
+                          >
+                            AI
+                          </span>
+                        )}
                       </p>
                       {player.email !== player.name && (
                         <p className="text-xs text-muted-foreground truncate">{player.email}</p>

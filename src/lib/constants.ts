@@ -4,6 +4,9 @@
 // they go to sleep, even for early-morning AEST kick-offs.
 export const TIP_LOCK_HOURS = 24;
 
+// Public signup is restricted to CloudMarc staff email addresses.
+export const ALLOWED_SIGNUP_EMAIL_DOMAIN = "cloudmarc.com.au";
+
 // Tournament bracket predictions (champion / finalists / top scorers) lock at
 // the start of the first match. This is 2026-06-11T00:00:00Z = 10:00 am AEST.
 export const PREDICTION_DEADLINE = new Date("2026-06-11T00:00:00Z");

@@ -7,12 +7,13 @@ import { hostCountryFlag } from "@/lib/format";
 import { GroupCard } from "@/components/group-card";
 import { getLeaderboard } from "@/lib/scoring";
 import { computeGroupStandings } from "@/lib/groups";
+import { BanterBoard } from "@/components/banter-board";
 
 export default async function HomePage() {
   const session = await auth();
 
   // ── Parallel top-level fetches ─────────────────────────────────────────────
-  const [totalParticipants, totalTips, allTeams, groupMatches, leaderboard] =
+  const [totalParticipants, totalTips, allTeams, groupMatches, leaderboard, recentComments] =
     await Promise.all([
       prisma.user.count(),
       prisma.matchTip.count(),
@@ -39,6 +40,16 @@ export default async function HomePage() {
         orderBy: [{ matchNumber: "asc" }],
       }),
       getLeaderboard(),
+      prisma.comment.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          content: true,
+          createdAt: true,
+          user: { select: { name: true, email: true, isBot: true } },
+        },
+      }),
     ]);
 
   // ── Group data structures ──────────────────────────────────────────────────
@@ -217,6 +228,17 @@ export default async function HomePage() {
       </Card>
 
       {/* ── Groups & Fixtures ─────────────────────────────────────────────── */}
+      {/* ── Banter Board ─────────────────────────────────────────────────── */}
+      <BanterBoard
+        initialComments={recentComments.map((c) => ({
+          ...c,
+          createdAt: c.createdAt.toISOString(),
+        }))}
+        currentUserId={session?.user?.id ?? null}
+        currentUserName={session?.user?.name ?? null}
+        isAdmin={(session?.user as { role?: string })?.role === "admin"}
+      />
+
       <section className="space-y-4">
         <div className="flex items-end justify-between">
           <div>

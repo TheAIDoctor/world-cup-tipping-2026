@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ALLOWED_SIGNUP_EMAIL_DOMAIN } from "@/lib/constants";
 
 export function SignupForm() {
   const router = useRouter();
@@ -16,6 +17,12 @@ export function SignupForm() {
     e.preventDefault();
     setError("");
 
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail.endsWith(`@${ALLOWED_SIGNUP_EMAIL_DOMAIN}`)) {
+      setError(`Only @${ALLOWED_SIGNUP_EMAIL_DOMAIN} email addresses can sign up.`);
+      return;
+    }
     if (password.length < 6) {
       setError("Password must be at least 6 characters.");
       return;
@@ -30,14 +37,14 @@ export function SignupForm() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), email: email.trim(), password }),
+        body: JSON.stringify({ name: name.trim(), email: normalizedEmail, password }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Registration failed.");
         return;
       }
-      router.push("/signin?registered=1&email=" + encodeURIComponent(email.trim()));
+      router.push("/signin?registered=1&email=" + encodeURIComponent(normalizedEmail));
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -107,6 +114,10 @@ export function SignupForm() {
           className="w-full rounded-lg px-4 py-3 text-sm font-medium border outline-none transition-all focus:ring-2 ring-offset-0"
           style={inputStyle}
         />
+        <p className="text-xs" style={{ color: "var(--cm-muted)" }}>
+          Only <span className="font-semibold">@{ALLOWED_SIGNUP_EMAIL_DOMAIN}</span> email
+          addresses can register.
+        </p>
       </div>
 
       <div className="space-y-1.5">

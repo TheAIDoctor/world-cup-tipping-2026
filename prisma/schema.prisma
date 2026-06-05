@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -15,12 +15,14 @@ model User {
   emailVerified        DateTime?
   image                String?
   role                 String                @default("player")
+  isBot                Boolean               @default(false)
   createdAt            DateTime              @default(now())
   accounts             Account[]
   sessions             Session[]
   matchTips            MatchTip[]
   tournamentPrediction TournamentPrediction?
   topScorerPrediction  TopScorerPrediction?
+  comments             Comment[]
 }
 
 model Account {
@@ -131,6 +133,14 @@ model TopScorerPrediction {
   scorer1 String
   scorer2 String
   scorer3 String
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
 }
 
 // Single-row table storing the actual tournament outcome for scoring predictions.

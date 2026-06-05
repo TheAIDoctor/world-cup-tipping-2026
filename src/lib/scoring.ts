@@ -6,6 +6,7 @@ export type PlayerScore = {
   id: string;
   name: string;
   email: string;
+  isBot: boolean;
   matchPts: number;
   tournamentPts: number;
   topScorerPts: number;
@@ -26,6 +27,7 @@ export async function getLeaderboard(): Promise<PlayerScore[]> {
         id: true,
         name: true,
         email: true,
+        isBot: true,
         matchTips: { select: { points: true } },
         tournamentPrediction: {
           select: { champion: true, runnerUp: true, third: true, fourth: true },
@@ -53,6 +55,7 @@ export async function getLeaderboard(): Promise<PlayerScore[]> {
         id: u.id,
         name: u.name || u.email || "Unknown",
         email: u.email || "",
+        isBot: u.isBot,
         matchPts,
         tournamentPts,
         topScorerPts,

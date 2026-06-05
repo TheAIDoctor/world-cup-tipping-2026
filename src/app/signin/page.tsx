@@ -46,6 +46,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
             width={140}
             height={38}
             className="h-9 w-auto object-contain"
+            style={{ width: "auto" }}
             priority
           />
           <div className="text-center">
