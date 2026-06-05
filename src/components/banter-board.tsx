@@ -46,6 +46,16 @@ function avatarColor(name: string) {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
+function hasUnrespondedMention(comments: Comment[]): boolean {
+  const cloudyPosts = comments.filter((c) => c.user.isBot);
+  return comments.some((c) => {
+    if (c.user.isBot) return false;
+    if (!c.content.toLowerCase().includes("@cloudy")) return false;
+    const mentionTime = new Date(c.createdAt).getTime();
+    return !cloudyPosts.some((cp) => new Date(cp.createdAt).getTime() > mentionTime);
+  });
+}
+
 export function BanterBoard({ initialComments, currentUserId, currentUserName, isAdmin }: BanterBoardProps) {
   const [comments, setComments] = useState<Comment[]>(initialComments);
   const [expanded, setExpanded] = useState(false);
@@ -60,11 +70,16 @@ export function BanterBoard({ initialComments, currentUserId, currentUserName, i
   );
   const latest = sorted[sorted.length - 1];
 
-  // Poll every 15s
+  // Poll every 15s; notify Cloudy when there are unresponded @Cloudy mentions
   useEffect(() => {
     const interval = setInterval(async () => {
       const res = await fetch("/api/comments");
-      if (res.ok) setComments(await res.json());
+      if (!res.ok) return;
+      const fresh: Comment[] = await res.json();
+      setComments(fresh);
+      if (hasUnrespondedMention(fresh)) {
+        fetch("/api/cloudy/check-mentions", { method: "POST" }).catch(() => {});
+      }
     }, 15000);
     return () => clearInterval(interval);
   }, []);
@@ -93,6 +108,9 @@ export function BanterBoard({ initialComments, currentUserId, currentUserName, i
       const newComment = await res.json();
       setComments((prev) => [newComment, ...prev]);
       setText("");
+      if (text.toLowerCase().includes("@cloudy")) {
+        fetch("/api/cloudy/check-mentions", { method: "POST" }).catch(() => {});
+      }
     } catch {
       setError("Failed to post — try again");
     } finally {

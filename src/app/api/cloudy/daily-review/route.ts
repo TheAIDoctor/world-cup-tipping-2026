@@ -115,38 +115,6 @@ export async function POST(req: Request) {
     }
   } catch { /* banter is non-critical */ }
 
-  // Also check for @Cloudy mentions from the last 24h and reply to any new ones
-  try {
-    const since = new Date(Date.now() - 86_400_000);
-    const mentions = await prisma.comment.findMany({
-      where: {
-        content: { contains: "@Cloudy", mode: "insensitive" },
-        createdAt: { gte: since },
-        userId: { not: cloudy.id },
-      },
-      include: { user: { select: { name: true } } },
-      orderBy: { createdAt: "asc" },
-      take: 2,
-    });
-
-    // Only reply if Cloudy hasn't posted after the mention
-    const cloudyLatest = await prisma.comment.findFirst({
-      where: { userId: cloudy.id },
-      orderBy: { createdAt: "desc" },
-    });
-
-    for (const mention of mentions) {
-      if (cloudyLatest && cloudyLatest.createdAt > mention.createdAt) continue;
-      const senderName = mention.user.name || "someone";
-      const reply = await generateBanter(
-        `${senderName} just wrote on the banter board: "${mention.content}" — they mentioned you (@Cloudy). Reply with a short witty comeback. 1-2 sentences max.`
-      );
-      if (reply) {
-        await prisma.comment.create({ data: { userId: cloudy.id, content: reply } });
-      }
-    }
-  } catch { /* mentions non-critical */ }
-
   return NextResponse.json({
     ok: true,
     reviewed: upcoming.length,
