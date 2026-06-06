@@ -105,8 +105,8 @@ export default async function TipsPage() {
         <CardContent>
           <TipsForm
             matchId={match.id}
-            homeTeam={match.homeTeam ? `${match.homeTeam.flagEmoji} ${match.homeTeam.name}` : "TBD"}
-            awayTeam={match.awayTeam ? `${match.awayTeam.flagEmoji} ${match.awayTeam.name}` : "TBD"}
+            homeTeam={match.homeTeam ? { code: match.homeTeam.code, name: match.homeTeam.name, flagEmoji: match.homeTeam.flagEmoji } : null}
+            awayTeam={match.awayTeam ? { code: match.awayTeam.code, name: match.awayTeam.name, flagEmoji: match.awayTeam.flagEmoji } : null}
             existingHomeScore={existingTip?.homeScore}
             existingAwayScore={existingTip?.awayScore}
             locked={locked}
