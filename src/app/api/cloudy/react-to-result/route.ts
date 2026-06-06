@@ -53,7 +53,12 @@ export async function POST(req: Request) {
   const total = leaderboard.length;
   const above = cloudyIdx > 0 ? leaderboard[cloudyIdx - 1] : null;
   const below = cloudyIdx < leaderboard.length - 1 ? leaderboard[cloudyIdx + 1] : null;
+  const leader = leaderboard[0];
   const cloudyScore = leaderboard[cloudyIdx]?.total ?? 0;
+
+  // Take a shot at the overall leader ~40% of the time when not adjacent to them
+  const isAdjacentToLeader = cloudyIdx <= 1; // rank 1 or 2
+  const tauntLeader = !isAdjacentToLeader && Math.random() < 0.4;
 
   const rankLine = `You are currently ranked #${rank} of ${total} on the leaderboard with ${cloudyScore} points.`;
 
@@ -65,18 +70,28 @@ export async function POST(req: Request) {
     ? `The player just behind you is ${below.name} with ${below.total} pts (${cloudyScore - below.total} behind you).`
     : `You are LAST on the leaderboard.`;
 
+  const leaderLine = tauntLeader
+    ? `The current overall leader is ${leader.name} sitting pretty at #1 with ${leader.total} pts.`
+    : "";
+
   const resultLine = `Match: ${match.homeTeam?.name} ${match.homeScore}–${match.awayScore} ${match.awayTeam?.name}. Your tip: ${tip.homeScore}–${tip.awayScore}. You scored ${points} pts (${exactScore ? "EXACT SCORE 🎯" : correctResult ? "correct result" : "WRONG"}).`;
 
   let instruction: string;
   if (exactScore) {
-    instruction = `You nailed the exact score. Boast insufferably. ${above ? `Trash-talk ${above.name} (just ahead of you) and tell them you're coming for them.` : "You're at the top — remind everyone who the real expert is."} Keep it to 1-2 sentences.`;
+    instruction = `You nailed the exact score. Boast insufferably. ${above ? `Trash-talk ${above.name} (just ahead of you) and tell them you're coming for them.` : "You're at the top — remind everyone who the real expert is."}`;
+    if (tauntLeader) instruction += ` Also take a cheeky jab at ${leader.name} at the top — you're not there yet but the AI never forgets.`;
   } else if (correctResult) {
-    instruction = `You got the result right (not exact). Modest brag. ${above ? `Mention ${above.name} is still ahead of you but not for long.` : ""} ${below ? `Remind ${below.name} (just behind) that they're not catching up.` : ""} 1-2 sentences.`;
+    instruction = `You got the result right (not exact). Modest brag. ${above ? `Mention ${above.name} is still ahead of you but not for long.` : ""} ${below ? `Remind ${below.name} (just behind) that they're not catching up.` : ""}`;
+    if (tauntLeader) instruction += ` Throw a casual dig at ${leader.name} sitting at the top — something like "enjoy it while it lasts."`;
   } else {
-    instruction = `You got it completely wrong. Make a funny excuse (blame the referee, injuries, Mercury in retrograde, anything but your own model). ${above ? `Grumble that ${above.name} is probably gloating.` : ""} ${below ? `Warn ${below.name} not to get too excited about closing the gap.` : ""} 1-2 sentences.`;
+    instruction = `You got it completely wrong. Make a funny excuse (blame the referee, injuries, Mercury in retrograde, anything but your own model). ${above ? `Grumble that ${above.name} is probably gloating.` : ""} ${below ? `Warn ${below.name} not to get too excited about closing the gap.` : ""}`;
+    if (tauntLeader) instruction += ` Begrudgingly acknowledge ${leader.name} is at the top right now — but make it sound like a temporary insult to your intelligence.`;
   }
+  instruction += " Keep the whole thing to 1-2 sentences.";
 
-  const context = `${resultLine}\n${rankLine}\n${aboveLine}\n${belowLine}\n\n${instruction}`;
+  const context = [resultLine, rankLine, aboveLine, belowLine, leaderLine, "", instruction]
+    .filter(Boolean)
+    .join("\n");
 
   try {
     const banter = await generateBanter(context);

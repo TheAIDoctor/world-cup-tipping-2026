@@ -9,6 +9,12 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Prevent bot accounts from being modified via this endpoint
+  const currentUser = await prisma.user.findUnique({ where: { id: session.user.id } });
+  if (currentUser?.isBot) {
+    return NextResponse.json({ error: "Not allowed." }, { status: 403 });
+  }
+
   const body = await req.json();
 
   // Update display name
