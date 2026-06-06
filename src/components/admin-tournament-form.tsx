@@ -85,7 +85,7 @@ export function AdminTournamentForm({ teams, existing }: AdminTournamentFormProp
         className="w-full rounded-md border px-3 py-2 text-sm bg-background"
       >
         <option value="">— Not set —</option>
-        {teams.map((t) => (
+        {[...teams].sort((a, b) => a.name.localeCompare(b.name)).map((t) => (
           <option key={t.id} value={t.name}>
             {t.flagEmoji} {t.name}
           </option>

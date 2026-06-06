@@ -140,7 +140,7 @@ export function PredictForm({
                   <SelectValue placeholder="Select a team…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {teams.map((t) => (
+                  {[...teams].sort((a, b) => a.name.localeCompare(b.name)).map((t) => (
                     <SelectItem key={t.id} value={t.name}>
                       {teamOption(t)}
                     </SelectItem>
