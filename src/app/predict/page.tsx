@@ -13,9 +13,8 @@ export default async function PredictPage() {
   await connection(); // ensure this page is never prerendered
   const session = await auth();
 
-  const teams = await prisma.team.findMany({
-    orderBy: { name: "asc" },
-  });
+  const teamsRaw = await prisma.team.findMany();
+  const teams = teamsRaw.sort((a, b) => a.name.localeCompare(b.name));
 
   let existingTournament = null;
   let existingTopScorers = null;
