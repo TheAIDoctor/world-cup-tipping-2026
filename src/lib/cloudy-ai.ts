@@ -46,7 +46,9 @@ export async function callCloudy(prompt: string): Promise<string> {
   const data = await res.json() as {
     choices: { message: { content: string } }[];
   };
-  return data.choices?.[0]?.message?.content?.trim() ?? "";
+  const text = data.choices?.[0]?.message?.content?.trim() ?? "";
+  // Strip wrapping quotes that the model sometimes adds (e.g. "banter here")
+  return text.replace(/^["'""'']|["'""'']$/g, "").trim();
 }
 
 export async function generateBanter(context: string): Promise<string> {
