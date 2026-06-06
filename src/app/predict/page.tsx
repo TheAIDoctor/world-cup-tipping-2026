@@ -10,7 +10,7 @@ export default async function PredictPage() {
   const session = await auth();
 
   const teams = await prisma.team.findMany({
-    orderBy: [{ group: "asc" }, { name: "asc" }],
+    orderBy: { name: "asc" },
   });
 
   let existingTournament = null;
