@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { connection } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { PREDICTION_DEADLINE } from "@/lib/constants";
 
 export default async function PredictPage() {
+  await connection(); // ensure this page is never prerendered
   const session = await auth();
 
   const teams = await prisma.team.findMany({
