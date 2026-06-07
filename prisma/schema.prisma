@@ -143,6 +143,16 @@ model Comment {
   createdAt DateTime @default(now())
 }
 
+// Live Golden Boot tracker — admin updates goal tallies during the tournament.
+// Shown as a public "Top 10 Scorers" leaderboard on the leaderboard page.
+model TopScorer {
+  id        String @id @default(cuid())
+  name      String @unique
+  team      String @default("")
+  flagEmoji String @default("")
+  goals     Int    @default(0)
+}
+
 // Single-row table storing the actual tournament outcome for scoring predictions.
 // Admin sets this after each event resolves. Identified by a fixed id "singleton".
 model TournamentResult {

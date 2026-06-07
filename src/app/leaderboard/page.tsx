@@ -1,4 +1,5 @@
 import { getLeaderboard } from "@/lib/scoring";
+import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -7,9 +8,37 @@ import { Badge } from "@/components/ui/badge";
 export const revalidate = 30;
 
 const MEDALS = ["🥇", "🥈", "🥉"];
+const BOOT_MEDALS = ["🥇", "🥈", "🥉"];
 
 export default async function LeaderboardPage() {
-  const leaderboard = await getLeaderboard();
+  const [leaderboard, topScorers, topScorerPredictions] = await Promise.all([
+    getLeaderboard(),
+    prisma.topScorer.findMany({ orderBy: [{ goals: "desc" }, { name: "asc" }], take: 10 }),
+    prisma.topScorerPrediction.findMany(),
+  ]);
+
+  // Aggregate community pick counts from all user predictions
+  const communityCounts: Record<string, number> = {};
+  for (const p of topScorerPredictions) {
+    for (const name of [p.scorer1, p.scorer2, p.scorer3]) {
+      if (name?.trim()) {
+        communityCounts[name.trim()] = (communityCounts[name.trim()] || 0) + 1;
+      }
+    }
+  }
+  // Sort community picks by count desc; deduplicate case-insensitively
+  const seen = new Set<string>();
+  const communityPicks = Object.entries(communityCounts)
+    .sort((a, b) => b[1] - a[1])
+    .filter(([name]) => {
+      const key = name.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 10);
+
+  const totalPredictors = topScorerPredictions.length;
 
   return (
     <div className="space-y-8">
@@ -178,6 +207,147 @@ export default async function LeaderboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* ── Golden Boot ────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        {/* Live top 10 by goals */}
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold">⚽ Golden Boot Race</h2>
+            {topScorers.length > 0 && (
+              <Badge variant="outline" style={{ color: "#ffcd57", borderColor: "rgba(255,205,87,0.4)", fontSize: "10px" }}>
+                Live
+              </Badge>
+            )}
+          </div>
+          <Card>
+            <CardContent className="p-0">
+              {topScorers.length === 0 ? (
+                <p className="text-center text-muted-foreground py-10 text-sm px-4">
+                  No goals tracked yet — the admin updates this as the tournament progresses.
+                </p>
+              ) : (
+                <div className="divide-y" style={{ borderColor: "rgba(193,15,255,0.1)" }}>
+                  {topScorers.map((scorer, idx) => {
+                    const medal = BOOT_MEDALS[idx] ?? null;
+                    const isTop = idx === 0;
+                    const isPodium = idx < 3;
+                    // Check if any user predicted this scorer
+                    const pickCount = communityCounts[scorer.name] ??
+                      Object.entries(communityCounts).find(([k]) => k.toLowerCase() === scorer.name.toLowerCase())?.[1] ?? 0;
+                    return (
+                      <div
+                        key={scorer.id}
+                        className="flex items-center gap-3 px-4 py-3"
+                        style={
+                          isTop
+                            ? { background: "linear-gradient(90deg, rgba(255,205,87,0.12), transparent)" }
+                            : isPodium
+                            ? { background: "linear-gradient(90deg, rgba(193,15,255,0.06), transparent)" }
+                            : undefined
+                        }
+                      >
+                        <span className={medal && isPodium ? "text-xl w-6 text-center" : "font-mono text-sm text-muted-foreground w-6 text-center"}>
+                          {medal && isPodium ? medal : idx + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            {scorer.flagEmoji && <span className="text-base leading-none">{scorer.flagEmoji}</span>}
+                            <span className={`font-semibold truncate ${isTop ? "text-white" : ""}`}>
+                              {scorer.name}
+                            </span>
+                            {pickCount > 0 && (
+                              <span
+                                className="shrink-0 text-[10px] px-1.5 py-0 rounded-full font-bold"
+                                style={{ background: "rgba(193,15,255,0.2)", color: "#c10fff" }}
+                                title={`${pickCount} user${pickCount !== 1 ? "s" : ""} predicted this player`}
+                              >
+                                {pickCount} pick{pickCount !== 1 ? "s" : ""}
+                              </span>
+                            )}
+                          </div>
+                          {scorer.team && (
+                            <p className="text-xs text-muted-foreground truncate">{scorer.team}</p>
+                          )}
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <span
+                            className="font-extrabold tabular-nums text-xl leading-none"
+                            style={{ color: isTop ? "#ffcd57" : isPodium ? "#ffe6a3" : "var(--cm-foreground)" }}
+                          >
+                            {scorer.goals}
+                          </span>
+                          <span className="text-xs text-muted-foreground ml-1">⚽</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Community picks */}
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold">🎯 Community Picks</h2>
+            {totalPredictors > 0 && (
+              <Badge variant="outline" className="text-[10px]" style={{ color: "rgba(148,163,184,0.9)", borderColor: "rgba(148,163,184,0.3)" }}>
+                {totalPredictors} player{totalPredictors !== 1 ? "s" : ""} predicted
+              </Badge>
+            )}
+          </div>
+          <Card>
+            <CardContent className="p-0">
+              {communityPicks.length === 0 ? (
+                <p className="text-center text-muted-foreground py-10 text-sm px-4">
+                  No top scorer predictions submitted yet.
+                </p>
+              ) : (
+                <div className="divide-y" style={{ borderColor: "rgba(193,15,255,0.1)" }}>
+                  {communityPicks.map(([name, count], idx) => {
+                    const pct = totalPredictors > 0 ? Math.round((count / totalPredictors) * 100) : 0;
+                    const isTop = idx === 0;
+                    return (
+                      <div key={name} className="flex items-center gap-3 px-4 py-3">
+                        <span className="font-mono text-sm text-muted-foreground w-6 text-center">
+                          {idx + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-semibold truncate text-sm ${isTop ? "text-white" : ""}`}>
+                            {name}
+                          </p>
+                          {/* Bar */}
+                          <div className="mt-1 h-1 rounded-full overflow-hidden" style={{ background: "rgba(193,15,255,0.12)" }}>
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{
+                                width: `${pct}%`,
+                                background: isTop
+                                  ? "linear-gradient(90deg, #ffcd57, #c10fff)"
+                                  : "rgba(193,15,255,0.5)",
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <span className="font-bold tabular-nums text-sm" style={{ color: isTop ? "#ffcd57" : "var(--cm-foreground)" }}>
+                            {count}
+                          </span>
+                          <span className="text-xs text-muted-foreground ml-1">/{totalPredictors}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
+      </div>
 
       {/* Scoring key */}
       <div className="flex justify-center gap-4 text-xs text-slate-400 flex-wrap">

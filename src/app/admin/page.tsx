@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { AdminResultForm } from "@/components/admin-result-form";
 import { AdminTournamentForm } from "@/components/admin-tournament-form";
 import { AdminPasswordResetForm } from "@/components/admin-password-reset-form";
+import { AdminTopScorerForm } from "@/components/admin-top-scorer-form";
 import { formatKickoff, formatKickoffDate } from "@/lib/format";
 import { STAGE_LABELS, STAGE_ORDER, TOURNAMENT_RESULT_ID } from "@/lib/constants";
 
@@ -17,7 +18,7 @@ export default async function AdminPage() {
     redirect("/");
   }
 
-  const [matches, allTeams, allUsers, tournamentResult] = await Promise.all([
+  const [matches, allTeams, allUsers, tournamentResult, topScorers] = await Promise.all([
     prisma.match.findMany({
       select: {
         id: true,
@@ -45,6 +46,7 @@ export default async function AdminPage() {
       orderBy: { createdAt: "asc" },
     }),
     prisma.tournamentResult.findUnique({ where: { id: TOURNAMENT_RESULT_ID } }),
+    prisma.topScorer.findMany({ orderBy: [{ goals: "desc" }, { name: "asc" }] }),
   ]);
 
   const teamOptions = allTeams.map((t) => ({
@@ -286,6 +288,19 @@ export default async function AdminPage() {
         <AdminTournamentForm
           teams={allTeams.map((t) => ({ id: t.id, name: t.name, flagEmoji: t.flagEmoji }))}
           existing={tournamentResult ?? undefined}
+        />
+      </section>
+
+      {/* Golden Boot tracker */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">⚽ Golden Boot Tracker</h2>
+        <p className="text-sm text-muted-foreground mb-3">
+          Add players and update their goal tallies as the tournament progresses.
+          Shown publicly as the Top 10 Scorers leaderboard.
+        </p>
+        <AdminTopScorerForm
+          teams={allTeams.map((t) => ({ name: t.name, flagEmoji: t.flagEmoji }))}
+          scorers={topScorers}
         />
       </section>
 
