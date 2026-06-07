@@ -232,3 +232,12 @@ html:not(.dark) .text-slate-400   { color: #6b7280; }
     border-radius: 4px;
   }
 }
+
+/* ── News ticker marquee ─────────────────────────────────────────────────── */
+@keyframes ticker {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-ticker {
+  animation: ticker linear infinite;
+}

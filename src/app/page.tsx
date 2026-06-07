@@ -8,6 +8,7 @@ import { GroupCard } from "@/components/group-card";
 import { getLeaderboard } from "@/lib/scoring";
 import { computeGroupStandings } from "@/lib/groups";
 import { BanterBoard } from "@/components/banter-board";
+import { NewsTicker } from "@/components/news-ticker";
 
 export default async function HomePage() {
   const session = await auth();
@@ -103,6 +104,8 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-8">
+      {/* ── News Ticker ───────────────────────────────────────────────────── */}
+      <NewsTicker />
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <div className="relative text-center space-y-4 py-6 sm:py-12 overflow-hidden">
         <svg
