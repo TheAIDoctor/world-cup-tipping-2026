@@ -68,54 +68,71 @@ const teams = [
 // Groups in order A-L
 const groups = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 
-// Schedule: distribute 72 matches across June 11-27, 2026 (17 days)
-// ~4 matches per day. We have 12 groups × 6 matches = 72 matches.
-// Round 1: matches 1-2 per group (24 matches) -> June 11-14 (6 days, 4/day)
-// Round 2: matches 3-4 per group (24 matches) -> June 15-18 (6 days, 4/day)
-// Round 3: matches 5-6 per group (24 matches) -> June 22-25 (4 days, 6/day)
+// Schedule: 72 group-stage matches (12 groups × 6 matches each).
+//
+// Layout — all times UTC, converted to Melbourne AEST (UTC+10) for display:
+//   MD1 (matchday 1 for all groups): June 11-14 UTC → Jun 12-15 AEST
+//   MD2 (matchday 2 for all groups): June 17-20 UTC → Jun 18-21 AEST
+//   MD3 (matchday 3, simultaneous): June 23-26 UTC → Jun 24-27 AEST
+//
+// 3 groups per UTC base date → 6 matches per UTC day at:
+//   15:00, 18:00, 21:00 UTC  (1 am, 4 am, 7 am AEST next day)
+//   00:00, 03:00, 06:00 UTC +1 day  (10 am, 1 pm, 4 pm AEST)
+// MD3 within a group: both games kick off simultaneously (same UTC time).
+//
+// KEY FIXES vs the old algorithm:
+//   1. "00:00" is now on the NEXT UTC day so it sorts after "21:00",
+//      not before "15:00" (the old midnight-same-day bug).
+//   2. A group's MD1/MD2/MD3 games use DIFFERENT date windows — the old
+//      code assigned all 6 of a group's matches into the "round 1" window,
+//      which meant MD1 and MD2 landed on the same calendar day (e.g. Brazil
+//      appeared to play twice on the same Melbourne day).
 
-function getMatchDate(matchIndex: number): Date {
-  // matchIndex 0-71
-  const round1Dates = [
-    "2026-06-11", "2026-06-11", "2026-06-11", "2026-06-11",
-    "2026-06-12", "2026-06-12", "2026-06-12", "2026-06-12",
-    "2026-06-13", "2026-06-13", "2026-06-13", "2026-06-13",
-    "2026-06-13", "2026-06-13", "2026-06-13", "2026-06-13",
-    "2026-06-14", "2026-06-14", "2026-06-14", "2026-06-14",
-    "2026-06-14", "2026-06-14", "2026-06-14", "2026-06-14",
-  ];
-  const round2Dates = [
-    "2026-06-15", "2026-06-15", "2026-06-15", "2026-06-15",
-    "2026-06-16", "2026-06-16", "2026-06-16", "2026-06-16",
-    "2026-06-17", "2026-06-17", "2026-06-17", "2026-06-17",
-    "2026-06-17", "2026-06-17", "2026-06-17", "2026-06-17",
-    "2026-06-18", "2026-06-18", "2026-06-18", "2026-06-18",
-    "2026-06-18", "2026-06-18", "2026-06-18", "2026-06-18",
-  ];
-  const round3Dates = [
-    "2026-06-22", "2026-06-22", "2026-06-22", "2026-06-22", "2026-06-22", "2026-06-22",
-    "2026-06-23", "2026-06-23", "2026-06-23", "2026-06-23", "2026-06-23", "2026-06-23",
-    "2026-06-24", "2026-06-24", "2026-06-24", "2026-06-24", "2026-06-24", "2026-06-24",
-    "2026-06-25", "2026-06-25", "2026-06-25", "2026-06-25", "2026-06-25", "2026-06-25",
-  ];
+const MD1_BASES = ["2026-06-11","2026-06-12","2026-06-13","2026-06-14"];
+const MD2_BASES = ["2026-06-17","2026-06-18","2026-06-19","2026-06-20"];
+const MD3_BASES = ["2026-06-23","2026-06-24","2026-06-25","2026-06-26"];
 
-  const times = ["15:00", "18:00", "21:00", "00:00"];
+// 6 slots per base-day; slots 3-5 use base+1 so midnight stays chronological
+const DAY_SLOTS: Array<{ dayOffset: number; time: string }> = [
+  { dayOffset: 0, time: "T15:00:00Z" },
+  { dayOffset: 0, time: "T18:00:00Z" },
+  { dayOffset: 0, time: "T21:00:00Z" },
+  { dayOffset: 1, time: "T00:00:00Z" },
+  { dayOffset: 1, time: "T03:00:00Z" },
+  { dayOffset: 1, time: "T06:00:00Z" },
+];
 
-  let dateStr: string;
-  let timeIndex: number;
+// MD3: 3 simultaneous-kickoff pairs per day (both group games at the same UTC time)
+const MD3_SLOTS: Array<{ time: string }> = [
+  { time: "T15:00:00Z" },
+  { time: "T19:00:00Z" },
+  { time: "T23:00:00Z" },
+];
 
-  if (matchIndex < 24) {
-    dateStr = round1Dates[matchIndex];
-    timeIndex = matchIndex % 4;
-  } else if (matchIndex < 48) {
-    dateStr = round2Dates[matchIndex - 24];
-    timeIndex = (matchIndex - 24) % 4;
+function addDaysToDateStr(dateStr: string, n: number): string {
+  const d = new Date(dateStr + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+// groupIndex: 0-11 (groups A-L); posInGroup: 0-5 (matches within group)
+// pos 0-1 = matchday 1, pos 2-3 = matchday 2, pos 4-5 = matchday 3
+function getMatchDate(groupIndex: number, posInGroup: number): Date {
+  const dayIdx   = Math.floor(groupIndex / 3); // 0-3 (which base day)
+  const groupPos = groupIndex % 3;             // 0-2 (slot within that day)
+
+  if (posInGroup < 2) {
+    const slot = DAY_SLOTS[groupPos * 2 + posInGroup];
+    const base = addDaysToDateStr(MD1_BASES[dayIdx], slot.dayOffset);
+    return new Date(base + slot.time);
+  } else if (posInGroup < 4) {
+    const slot = DAY_SLOTS[groupPos * 2 + (posInGroup - 2)];
+    const base = addDaysToDateStr(MD2_BASES[dayIdx], slot.dayOffset);
+    return new Date(base + slot.time);
   } else {
-    dateStr = round3Dates[matchIndex - 48];
-    timeIndex = (matchIndex - 48) % 4;
+    // MD3 — both games in group are simultaneous
+    return new Date(MD3_BASES[dayIdx] + MD3_SLOTS[groupPos].time);
   }
-
-  return new Date(`${dateStr}T${times[timeIndex]}:00Z`);
 }
 
 // The 16 host cities of FIFA World Cup 2026 with their assigned stadiums.
@@ -171,13 +188,13 @@ async function main() {
   const teamByCode = Object.fromEntries(dbTeams.map((t) => [t.code, t]));
 
   let matchNumber = 1;
-  let matchIndex = 0;
 
-  for (const group of groups) {
+  for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+    const group = groups[groupIndex];
     const groupTeams = teams.filter((t) => t.group === group);
     const [t1, t2, t3, t4] = groupTeams.map((t) => teamByCode[t.code]);
 
-    // 6 matches per group
+    // 6 matches per group (posInGroup 0-5)
     const groupMatches = [
       // Match day 1
       { home: t1, away: t2 },
@@ -185,13 +202,15 @@ async function main() {
       // Match day 2
       { home: t1, away: t3 },
       { home: t2, away: t4 },
-      // Match day 3
+      // Match day 3 (simultaneous within group)
       { home: t1, away: t4 },
       { home: t2, away: t3 },
     ];
 
-    for (const m of groupMatches) {
-      const { city, venue, country } = venueForMatch(matchIndex);
+    for (let posInGroup = 0; posInGroup < groupMatches.length; posInGroup++) {
+      const m = groupMatches[posInGroup];
+      const globalMatchIndex = groupIndex * 6 + posInGroup;
+      const { city, venue, country } = venueForMatch(globalMatchIndex);
       await prisma.match.upsert({
         where: { matchNumber },
         create: {
@@ -199,7 +218,7 @@ async function main() {
           stage: "group",
           homeTeamId: m.home.id,
           awayTeamId: m.away.id,
-          date: getMatchDate(matchIndex),
+          date: getMatchDate(groupIndex, posInGroup),
           city,
           venue,
           country,
@@ -207,14 +226,13 @@ async function main() {
         update: {
           homeTeamId: m.home.id,
           awayTeamId: m.away.id,
-          date: getMatchDate(matchIndex),
+          date: getMatchDate(groupIndex, posInGroup),
           city,
           venue,
           country,
         },
       });
       matchNumber++;
-      matchIndex++;
     }
   }
 
