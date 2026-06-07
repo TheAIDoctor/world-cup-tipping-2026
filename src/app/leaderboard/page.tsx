@@ -11,11 +11,18 @@ const MEDALS = ["🥇", "🥈", "🥉"];
 const BOOT_MEDALS = ["🥇", "🥈", "🥉"];
 
 export default async function LeaderboardPage() {
-  const [leaderboard, topScorers, topScorerPredictions] = await Promise.all([
+  const [leaderboard, topScorers, topScorerPredictions, tournamentPredictions, allTeams] = await Promise.all([
     getLeaderboard(),
     prisma.topScorer.findMany({ orderBy: [{ goals: "desc" }, { name: "asc" }], take: 10 }),
     prisma.topScorerPrediction.findMany(),
+    prisma.tournamentPrediction.findMany({ select: { champion: true } }),
+    prisma.team.findMany({ select: { name: true, flagEmoji: true } }),
   ]);
+
+  // Lookup map: team name → flag emoji
+  const teamFlag: Record<string, string> = Object.fromEntries(
+    allTeams.map((t) => [t.name.toLowerCase(), t.flagEmoji])
+  );
 
   // Aggregate community pick counts from all user predictions
   const communityCounts: Record<string, number> = {};
@@ -39,6 +46,17 @@ export default async function LeaderboardPage() {
     .slice(0, 10);
 
   const totalPredictors = topScorerPredictions.length;
+
+  // Aggregate champion picks
+  const championCounts: Record<string, number> = {};
+  for (const p of tournamentPredictions) {
+    if (p.champion?.trim()) {
+      championCounts[p.champion.trim()] = (championCounts[p.champion.trim()] || 0) + 1;
+    }
+  }
+  const championPicks = Object.entries(championCounts)
+    .sort((a, b) => b[1] - a[1]);
+  const totalChampionPredictors = tournamentPredictions.length;
 
   return (
     <div className="space-y-8">
@@ -348,6 +366,86 @@ export default async function LeaderboardPage() {
         </section>
 
       </div>
+
+      {/* ── Champion Predictions ───────────────────────────────────────────── */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-bold">🏆 Predicted Champions</h2>
+          {totalChampionPredictors > 0 && (
+            <Badge variant="outline" className="text-[10px]" style={{ color: "rgba(148,163,184,0.9)", borderColor: "rgba(148,163,184,0.3)" }}>
+              {totalChampionPredictors} prediction{totalChampionPredictors !== 1 ? "s" : ""}
+            </Badge>
+          )}
+        </div>
+        <Card>
+          <CardContent className="p-0">
+            {championPicks.length === 0 ? (
+              <p className="text-center text-muted-foreground py-10 text-sm px-4">
+                No champion predictions submitted yet. Head to{" "}
+                <a href="/predict" className="underline hover:text-foreground">Predict</a> to pick your winner.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-0 divide-y sm:divide-y-0 sm:divide-x" style={{ borderColor: "rgba(193,15,255,0.1)" }}>
+                {championPicks.map(([team, count], idx) => {
+                  const flag = teamFlag[team.toLowerCase()] ?? "";
+                  const pct = totalChampionPredictors > 0 ? Math.round((count / totalChampionPredictors) * 100) : 0;
+                  const isTop = idx === 0;
+                  const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : null;
+                  return (
+                    <div
+                      key={team}
+                      className="flex items-center gap-3 px-4 py-3.5"
+                      style={
+                        isTop
+                          ? { background: "linear-gradient(90deg, rgba(255,205,87,0.1), transparent)" }
+                          : undefined
+                      }
+                    >
+                      {/* Rank */}
+                      <span className={medal ? "text-xl shrink-0" : "font-mono text-sm text-muted-foreground shrink-0 w-5 text-center"}>
+                        {medal ?? idx + 1}
+                      </span>
+
+                      {/* Flag + name */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          {flag && <span className="text-xl leading-none shrink-0">{flag}</span>}
+                          <span className={`font-semibold truncate ${isTop ? "text-white" : ""}`}>
+                            {team}
+                          </span>
+                        </div>
+                        {/* Bar */}
+                        <div className="mt-1.5 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(193,15,255,0.12)" }}>
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${pct}%`,
+                              background: isTop
+                                ? "linear-gradient(90deg, #ffcd57, #c10fff)"
+                                : "rgba(193,15,255,0.55)",
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Count + pct */}
+                      <div className="shrink-0 text-right">
+                        <div className="font-extrabold tabular-nums" style={{ color: isTop ? "#ffcd57" : "var(--cm-foreground)" }}>
+                          {count}
+                          <span className="text-xs font-medium text-muted-foreground ml-1">/ {totalChampionPredictors}</span>
+                        </div>
+                        <div className="text-xs tabular-nums" style={{ color: isTop ? "rgba(255,205,87,0.7)" : "var(--cm-muted)" }}>
+                          {pct}%
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
 
       {/* Scoring key */}
       <div className="flex justify-center gap-4 text-xs text-slate-400 flex-wrap">

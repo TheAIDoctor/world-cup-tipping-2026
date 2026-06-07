@@ -25,7 +25,7 @@ const teams = [
   { name: "Türkiye", code: "TUR", flagEmoji: "🇹🇷", group: "D" },
   // Group E
   { name: "Germany", code: "GER", flagEmoji: "🇩🇪", group: "E" },
-  { name: "Curaçao", code: "CUW", flagEmoji: "🏝️", group: "E" },
+  { name: "Curaçao", code: "CUW", flagEmoji: "🇨🇼", group: "E" },
   { name: "Ivory Coast", code: "CIV", flagEmoji: "🇨🇮", group: "E" },
   { name: "Ecuador", code: "ECU", flagEmoji: "🇪🇨", group: "E" },
   // Group F
