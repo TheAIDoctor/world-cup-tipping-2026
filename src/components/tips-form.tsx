@@ -40,8 +40,10 @@ export function TipsForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (locked) return;
-    const h = parseInt(homeScore);
-    const a = parseInt(awayScore);
+    // An empty field shows the "0" placeholder, so users reasonably read it
+    // as zero — treat it as such instead of failing validation.
+    const h = homeScore.trim() === "" ? 0 : parseInt(homeScore);
+    const a = awayScore.trim() === "" ? 0 : parseInt(awayScore);
     if (isNaN(h) || isNaN(a) || h < 0 || a < 0) {
       setError("Please enter valid scores");
       return;
@@ -64,6 +66,8 @@ export function TipsForm({
             : data?.error || "Failed to save tip"
         );
       }
+      setHomeScore(String(h));
+      setAwayScore(String(a));
       setSaved(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save tip");
