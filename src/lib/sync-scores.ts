@@ -30,6 +30,67 @@ function determineWinner(m: {
   return null;
 }
 
+// Common name variants Perplexity may return vs. the official names in our
+// Team table.
+const TEAM_ALIASES: Record<string, string> = {
+  "usa": "United States",
+  "united states of america": "United States",
+  "south korea": "Korea Republic",
+  "korea": "Korea Republic",
+  "czech republic": "Czechia",
+  "turkey": "Türkiye",
+  "turkiye": "Türkiye",
+  "bosnia herzegovina": "Bosnia and Herzegovina",
+  "bosnia": "Bosnia and Herzegovina",
+  "cabo verde": "Cape Verde",
+  "cote d'ivoire": "Ivory Coast",
+  "côte d'ivoire": "Ivory Coast",
+  "curacao": "Curaçao",
+  "congo dr": "DR Congo",
+  "democratic republic of the congo": "DR Congo",
+};
+
+/**
+ * Hard-validates Perplexity's golden boot list against our own database so
+ * qualifying-campaign / club-football tallies can never leak in:
+ *  - the player's team must be one of the 48 qualified teams, and
+ *  - their goal count must be plausible given how many tournament matches
+ *    their team has actually completed (≤ 5 goals per completed match —
+ *    no player has ever scored more than 5 in a World Cup game).
+ */
+async function validateScorers(
+  scorers: { name: string; team: string; goals: number; flagEmoji: string }[]
+): Promise<{ name: string; team: string; goals: number; flagEmoji: string }[]> {
+  const [teams, completed] = await Promise.all([
+    prisma.team.findMany({ select: { id: true, name: true } }),
+    prisma.match.findMany({
+      where: { homeScore: { not: null }, awayScore: { not: null } },
+      select: { homeTeamId: true, awayTeamId: true },
+    }),
+  ]);
+
+  const teamByName = new Map(teams.map((t) => [t.name.toLowerCase(), t]));
+  const playedByTeam = new Map<string, number>();
+  for (const m of completed) {
+    if (m.homeTeamId) playedByTeam.set(m.homeTeamId, (playedByTeam.get(m.homeTeamId) ?? 0) + 1);
+    if (m.awayTeamId) playedByTeam.set(m.awayTeamId, (playedByTeam.get(m.awayTeamId) ?? 0) + 1);
+  }
+
+  return scorers
+    .map((s) => {
+      const key = s.team.trim().toLowerCase();
+      const canonical = TEAM_ALIASES[key] ?? s.team.trim();
+      const team = teamByName.get(canonical.toLowerCase());
+      return team ? { ...s, team: canonical, teamId: team.id } : null;
+    })
+    .filter((s): s is NonNullable<typeof s> => s !== null)
+    .filter((s) => {
+      const maxPlausible = (playedByTeam.get(s.teamId) ?? 0) * 5;
+      return s.goals > 0 && s.goals <= maxPlausible;
+    })
+    .map(({ name, team, goals, flagEmoji }) => ({ name, team, goals, flagEmoji }));
+}
+
 export async function runScoreSync(forceSync = false): Promise<{ checked: number }> {
   const now   = new Date();
   const nowMs = now.getTime();
@@ -115,18 +176,31 @@ export async function runScoreSync(forceSync = false): Promise<{ checked: number
   }
 
   // ── 2. Golden boot ───────────────────────────────────────────────────────
-  if (allMatches.length > 0 && (forceSync || nowMs - lastScorerFetch >= SCORER_INTERVAL)) {
+  // Refresh whenever the tournament is underway (any completed match exists),
+  // not only while a match is live — goals need to show up after full time too.
+  const tournamentUnderway =
+    allMatches.length > 0 ||
+    (await prisma.match.count({ where: { homeScore: { not: null } } })) > 0;
+  if (tournamentUnderway && (forceSync || nowMs - lastScorerFetch >= SCORER_INTERVAL)) {
     lastScorerFetch = nowMs;
     const scorers = await fetchTopScorers();
     if (scorers.length > 0) {
-      for (const s of scorers) {
-        await prisma.topScorer.upsert({
-          where: { name: s.name },
-          create: { name: s.name, team: s.team, flagEmoji: s.flagEmoji, goals: s.goals },
-          update: { team: s.team, flagEmoji: s.flagEmoji, goals: s.goals },
+      const valid = await validateScorers(scorers);
+      if (valid.length > 0) {
+        // Replace, don't merge: stale entries (e.g. qualifying-campaign
+        // tallies from an earlier bad fetch) must not survive.
+        await prisma.topScorer.deleteMany({
+          where: { name: { notIn: valid.map((v) => v.name) } },
         });
+        for (const s of valid) {
+          await prisma.topScorer.upsert({
+            where: { name: s.name },
+            create: { name: s.name, team: s.team, flagEmoji: s.flagEmoji, goals: s.goals },
+            update: { team: s.team, flagEmoji: s.flagEmoji, goals: s.goals },
+          });
+        }
+        anyUpdate = true;
       }
-      anyUpdate = true;
     }
   }
 

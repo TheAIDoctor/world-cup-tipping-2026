@@ -245,7 +245,7 @@ export default async function LeaderboardPage() {
             <CardContent className="p-0">
               {topScorers.length === 0 ? (
                 <p className="text-center text-muted-foreground py-10 text-sm px-4">
-                  No goals tracked yet — the admin updates this as the tournament progresses.
+                  No goals tracked yet — tallies update automatically as tournament matches are played.
                 </p>
               ) : (
                 <div className="divide-y" style={{ borderColor: "rgba(193,15,255,0.1)" }}>

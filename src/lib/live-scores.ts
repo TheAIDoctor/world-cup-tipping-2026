@@ -90,11 +90,16 @@ export async function fetchMatchScore(
  */
 export async function fetchTopScorers(): Promise<TopScorerEntry[]> {
   const raw = await openrouterCall(
-    `FIFA World Cup 2026 — who are the current top scorers (golden boot race)?\n` +
-    `Give the top 10 players by goals scored so far.\n` +
+    `FIFA World Cup 2026 FINAL TOURNAMENT (June 11 – July 19, 2026, hosted in USA/Mexico/Canada) — ` +
+    `who are the top scorers (golden boot race)?\n` +
+    `STRICT RULES:\n` +
+    `- Count ONLY goals scored in official World Cup 2026 final tournament matches (group stage and knockout rounds).\n` +
+    `- Do NOT count qualifying matches, friendlies, warm-up games, club football, or any other competition.\n` +
+    `- The tournament just started, so tallies will be small. If no goals have been scored yet, reply with [].\n` +
+    `Give up to 10 players by tournament goals scored so far.\n` +
     `Reply with ONLY a JSON array, no other text:\n` +
-    `[{"name":"Player Name","team":"Country","goals":3,"flagEmoji":"🏳️"}]\n` +
-    `Use the correct flag emoji for each country. Sort by goals descending.`,
+    `[{"name":"Player Name","team":"Country","goals":1,"flagEmoji":"🏳️"}]\n` +
+    `Use official FIFA country names and the correct flag emoji. Sort by goals descending.`,
     400
   );
   if (!raw) return [];
