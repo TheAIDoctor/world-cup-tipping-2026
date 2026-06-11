@@ -56,10 +56,17 @@ export function TipsForm({
           tips: [{ matchId, homeScore: h, awayScore: a }],
         }),
       });
-      if (!res.ok) throw new Error("Failed to save");
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(
+          res.status === 401
+            ? "Session expired — please sign in again."
+            : data?.error || "Failed to save tip"
+        );
+      }
       setSaved(true);
-    } catch {
-      setError("Failed to save tip");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save tip");
     } finally {
       setSaving(false);
     }

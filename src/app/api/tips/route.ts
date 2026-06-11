@@ -34,7 +34,12 @@ export async function POST(req: Request) {
   });
 
   if (validTips.length === 0) {
-    return NextResponse.json({ ok: true, skipped: tips.length });
+    // Every submitted tip was for a locked match. Surface this as an error —
+    // a 200 here made the UI show "✓ Saved" when nothing was saved.
+    return NextResponse.json(
+      { error: "Tips for this match are locked — kickoff has passed." },
+      { status: 409 }
+    );
   }
 
   // Upsert all valid tips in parallel.
