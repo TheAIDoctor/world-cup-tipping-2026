@@ -57,12 +57,12 @@ export function getCloudyGapPolicy(
   ctx: TimeContext,
   matchLive: boolean
 ): { minGapMs: number; shouldSkip: boolean } {
-  if (ctx === "sleeping") return { minGapMs: 0, shouldSkip: true };
-
+  // Live match overrides the entire sleep schedule — Cloudy stays up for football
   if (matchLive) {
-    // Watching the game — reply fast, no evening cap applies
     return { minGapMs: 20 * 60 * 1000, shouldSkip: false };
   }
+
+  if (ctx === "sleeping") return { minGapMs: 0, shouldSkip: true };
 
   if (ctx === "work") {
     // Busy — longer gap and only checks the board ~50% of the time

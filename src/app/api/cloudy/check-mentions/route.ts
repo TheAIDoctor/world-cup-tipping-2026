@@ -14,13 +14,15 @@ const MENTION_AGE_MS = 10 * 60 * 1000; // mention must be ≥10 min old
 export async function POST() {
   const now = new Date();
 
-  // ── 1. Time-of-day gate ──────────────────────────────────────────────────
+  // ── 1. Time-of-day gate (match overrides sleep) ──────────────────────────
+  // Check match first — a live game keeps Cloudy wide awake at any hour.
+  const matchLive = await isMatchCurrentlyLive(prisma, now);
   const timeCtx = getCloudyTimeContext(now);
-  if (timeCtx === "sleeping") {
+
+  if (timeCtx === "sleeping" && !matchLive) {
     return NextResponse.json({ ok: true, skipped: "sleeping" });
   }
 
-  const matchLive = await isMatchCurrentlyLive(prisma, now);
   const { minGapMs, shouldSkip } = getCloudyGapPolicy(timeCtx, matchLive);
   if (shouldSkip) {
     return NextResponse.json({ ok: true, skipped: "busy" });
