@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const TABS = [
+const BASE_TABS = [
   { href: "/", icon: "🏠", label: "Home" },
   { href: "/tips", icon: "📋", label: "Tips" },
   { href: "/schedule", icon: "📅", label: "Schedule" },
@@ -11,8 +11,11 @@ const TABS = [
   { href: "/leaderboard", icon: "📊", label: "Leaders" },
 ];
 
-export function BottomTabBar() {
+export function BottomTabBar({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
+  const tabs = isAdmin
+    ? [...BASE_TABS, { href: "/admin", icon: "⚙️", label: "Admin" }]
+    : BASE_TABS;
   return (
     <nav
       className="fixed bottom-0 inset-x-0 z-50 md:hidden backdrop-blur-md border-t pb-[env(safe-area-inset-bottom)]"
@@ -22,7 +25,7 @@ export function BottomTabBar() {
       }}
     >
       <ul className="flex items-stretch justify-around">
-        {TABS.map((t) => {
+        {tabs.map((t) => {
           const active =
             t.href === "/" ? pathname === "/" : pathname.startsWith(t.href);
           return (

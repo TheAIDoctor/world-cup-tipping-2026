@@ -5,6 +5,7 @@ import { Nav } from "@/components/nav";
 import { BottomTabBar } from "@/components/bottom-tab-bar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { BugReportButton } from "@/components/bug-report-button";
+import { auth } from "@/lib/auth";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -22,11 +23,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth();
+  const isAdmin = (session?.user as { role?: string })?.role === "admin";
   return (
     <html
       lang="en"
@@ -51,7 +54,7 @@ export default function RootLayout({
               ⚽ CloudMarc World Cup 2026 · Built with ❤️ for the team
             </footer>
             <BugReportButton />
-            <BottomTabBar />
+            <BottomTabBar isAdmin={isAdmin} />
           </div>
         </ThemeProvider>
       </body>
