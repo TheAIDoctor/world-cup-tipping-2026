@@ -7,6 +7,7 @@ import { AdminResultForm } from "@/components/admin-result-form";
 import { AdminTournamentForm } from "@/components/admin-tournament-form";
 import { AdminPasswordResetForm } from "@/components/admin-password-reset-form";
 import { AdminTopScorerForm } from "@/components/admin-top-scorer-form";
+import { AdminSyncButton } from "@/components/admin-sync-button";
 import { formatKickoff, formatKickoffDate } from "@/lib/format";
 import { STAGE_LABELS, STAGE_ORDER, TOURNAMENT_RESULT_ID } from "@/lib/constants";
 
@@ -78,10 +79,12 @@ export default async function AdminPage() {
       <div>
         <h1 className="text-2xl font-bold">⚙️ Admin Panel</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Enter group-stage results and 90′ scores. For knockout matches,
-          assign teams as they qualify, then enter the result (plus penalty
-          scores if drawn at 90′). Winners advance automatically.
+          Scores are fetched automatically from the web every 5 minutes while
+          matches are live. Use the button below to force an immediate sync.
         </p>
+        <div className="mt-3">
+          <AdminSyncButton />
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3 sm:gap-4 text-center">
