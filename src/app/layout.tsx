@@ -31,7 +31,7 @@ export default function RootLayout({
     <html
       lang="en"
       translate="no"
-      className={`${inter.variable} h-full antialiased`}
+      className={`${inter.variable} h-full antialiased notranslate`}
       suppressHydrationWarning
     >
       <body className="cm-pitch-bg min-h-full flex flex-col text-foreground">

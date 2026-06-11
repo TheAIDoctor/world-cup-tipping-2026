@@ -48,7 +48,7 @@ export default async function PredictPage() {
             <p className="text-muted-foreground mb-4">
               Sign in to submit your predictions.
             </p>
-            <Link href="/api/auth/signin">
+            <Link href="/signin?callbackUrl=/predict">
               <Button>Sign In</Button>
             </Link>
           </CardContent>

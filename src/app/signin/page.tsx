@@ -1,5 +1,3 @@
-"use server";
-
 import { signIn, auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Image from "next/image";
