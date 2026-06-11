@@ -37,8 +37,8 @@ export default async function PredictPage() {
       <div>
         <h1 className="text-2xl font-bold">🔮 Tournament Predictions</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Pick your finalists and top scorers. Predictions lock on June 11, 2026
-          at midnight UTC.
+          Pick your finalists and top scorers. Predictions lock when the group
+          stage ends — June 28, 2026 at 4:00 am UTC (2:00 pm AEST).
         </p>
       </div>
 

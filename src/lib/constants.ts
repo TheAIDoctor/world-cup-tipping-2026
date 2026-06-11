@@ -7,9 +7,10 @@ export const TIP_LOCK_HOURS = 24;
 // Public signup is restricted to CloudMarc staff email addresses.
 export const ALLOWED_SIGNUP_EMAIL_DOMAIN = "cloudmarc.com.au";
 
-// Tournament bracket predictions (champion / finalists / top scorers) lock at
-// the start of the first match. This is 2026-06-11T00:00:00Z = 10:00 am AEST.
-export const PREDICTION_DEADLINE = new Date("2026-06-11T00:00:00Z");
+// Tournament bracket predictions (champion / finalists / top scorers) lock
+// when the group stage ends. Last group matches kick off at 02:00 UTC Jun 28;
+// 04:00 UTC gives a 2-hour buffer for matches to finish.
+export const PREDICTION_DEADLINE = new Date("2026-06-28T04:00:00Z");
 
 // Prisma ID for the single TournamentResult row (admin-entered after each event).
 export const TOURNAMENT_RESULT_ID = "singleton";
