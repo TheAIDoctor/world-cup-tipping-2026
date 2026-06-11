@@ -7,6 +7,7 @@ import { hostCountryFlag } from "@/lib/format";
 import { GroupCard } from "@/components/group-card";
 import { getLeaderboard } from "@/lib/scoring";
 import { computeGroupStandings } from "@/lib/groups";
+import Image from "next/image";
 import { BanterBoard } from "@/components/banter-board";
 import { NewsTicker } from "@/components/news-ticker";
 
@@ -107,7 +108,7 @@ export default async function HomePage() {
       {/* ── News Ticker ───────────────────────────────────────────────────── */}
       <NewsTicker />
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
-      <div className="relative text-center space-y-4 py-6 sm:py-12 overflow-hidden">
+      <div className="relative text-center space-y-4 py-6 sm:py-10 overflow-hidden">
         <svg
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 w-full h-full"
@@ -131,39 +132,167 @@ export default async function HomePage() {
             <path d="M0,360 A30,30 0 0 0 30,330" />
             <path d="M800,360 A30,30 0 0 1 770,330" />
           </g>
+
+          {/* ── Fireworks ── */}
+          {/* Burst 1 — left, purple */}
+          <g transform="translate(130, 75)">
+            <circle r="55" fill="none" stroke="#c10fff" strokeWidth="2.5" className="fw-ring" style={{ animationDelay: "0s" }} />
+            <circle r="35" fill="none" stroke="#c10fff" strokeWidth="1.5" className="fw-ring" style={{ animationDelay: "0.25s" }} />
+            {[0,45,90,135,180,225,270,315].map((deg, i) => (
+              <circle key={i} r="3.5" fill="#c10fff"
+                cx={Math.round(Math.cos(deg * Math.PI / 180) * 52)}
+                cy={Math.round(Math.sin(deg * Math.PI / 180) * 52)}
+                className="fw-spark" style={{ animationDelay: `${0.1 * i}s` }} />
+            ))}
+          </g>
+
+          {/* Burst 2 — top-center, gold */}
+          <g transform="translate(400, 32)">
+            <circle r="48" fill="none" stroke="#ffcd57" strokeWidth="2.5" className="fw-ring" style={{ animationDelay: "1.3s" }} />
+            <circle r="28" fill="none" stroke="#ffcd57" strokeWidth="1.5" className="fw-ring" style={{ animationDelay: "1.55s" }} />
+            {[22,67,112,157,202,247,292,337].map((deg, i) => (
+              <circle key={i} r="3" fill="#ffcd57"
+                cx={Math.round(Math.cos(deg * Math.PI / 180) * 46)}
+                cy={Math.round(Math.sin(deg * Math.PI / 180) * 46)}
+                className="fw-spark" style={{ animationDelay: `${1.3 + 0.1 * i}s` }} />
+            ))}
+          </g>
+
+          {/* Burst 3 — right, cyan-white */}
+          <g transform="translate(680, 85)">
+            <circle r="52" fill="none" stroke="#a8edff" strokeWidth="2.5" className="fw-ring" style={{ animationDelay: "2.6s" }} />
+            <circle r="32" fill="none" stroke="#a8edff" strokeWidth="1.5" className="fw-ring" style={{ animationDelay: "2.85s" }} />
+            {[15,60,105,150,195,240,285,330].map((deg, i) => (
+              <circle key={i} r="3" fill="#a8edff"
+                cx={Math.round(Math.cos(deg * Math.PI / 180) * 50)}
+                cy={Math.round(Math.sin(deg * Math.PI / 180) * 50)}
+                className="fw-spark" style={{ animationDelay: `${2.6 + 0.1 * i}s` }} />
+            ))}
+          </g>
+
+          {/* Burst 4 — upper-left, gold small */}
+          <g transform="translate(255, 48)">
+            <circle r="38" fill="none" stroke="#ffcd57" strokeWidth="2" className="fw-ring" style={{ animationDelay: "3.9s" }} />
+            {[30,90,150,210,270,330].map((deg, i) => (
+              <circle key={i} r="2.5" fill="#ffcd57"
+                cx={Math.round(Math.cos(deg * Math.PI / 180) * 36)}
+                cy={Math.round(Math.sin(deg * Math.PI / 180) * 36)}
+                className="fw-spark" style={{ animationDelay: `${3.9 + 0.12 * i}s` }} />
+            ))}
+          </g>
+
+          {/* Burst 5 — upper-right, purple small */}
+          <g transform="translate(560, 42)">
+            <circle r="40" fill="none" stroke="#c10fff" strokeWidth="2" className="fw-ring" style={{ animationDelay: "5.2s" }} />
+            {[30,90,150,210,270,330].map((deg, i) => (
+              <circle key={i} r="2.5" fill="#c10fff"
+                cx={Math.round(Math.cos(deg * Math.PI / 180) * 38)}
+                cy={Math.round(Math.sin(deg * Math.PI / 180) * 38)}
+                className="fw-spark" style={{ animationDelay: `${5.2 + 0.12 * i}s` }} />
+            ))}
+          </g>
         </svg>
-        <div className="relative">
+
+        {/* Three-column layout on large screens: trophy | text | badge */}
+        <div className="relative flex items-center justify-center gap-6 lg:gap-10">
+
+          {/* Player Collage — visible lg+ */}
           <div
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-2 max-w-[90vw]"
-            style={{ background: "rgba(193,15,255,0.15)", color: "#c10fff", border: "1px solid rgba(193,15,255,0.3)" }}
+            className="hidden lg:block relative flex-shrink-0 self-end"
+            style={{
+              width: "270px",
+              height: "235px",
+              maskImage: "linear-gradient(to top, transparent 0%, black 18%)",
+              WebkitMaskImage: "linear-gradient(to top, transparent 0%, black 18%)",
+            }}
           >
-            🌎 USA · Mexico · Canada — Jun 11 to Jul 19, 2026
+            {/* Messi — far left, back */}
+            <img
+              src="/players/messi.png"
+              alt="Lionel Messi"
+              className="absolute bottom-0 select-none pointer-events-none"
+              style={{ left: "0px", height: "155px", width: "auto", zIndex: 1, filter: "drop-shadow(3px 0 8px rgba(0,0,0,0.6))" }}
+            />
+            {/* Vinicius Jr — left-center */}
+            <img
+              src="/players/vinicius.png"
+              alt="Vinícius Júnior"
+              className="absolute bottom-0 select-none pointer-events-none"
+              style={{ left: "35px", height: "178px", width: "auto", zIndex: 3, filter: "drop-shadow(2px 0 8px rgba(255,205,87,0.2)) drop-shadow(0 4px 8px rgba(0,0,0,0.7))" }}
+            />
+            {/* Mbappé — centre, tallest */}
+            <img
+              src="/players/mbappe.png"
+              alt="Kylian Mbappé"
+              className="absolute bottom-0 select-none pointer-events-none"
+              style={{ left: "83px", height: "215px", width: "auto", zIndex: 4, filter: "drop-shadow(0 0 14px rgba(193,15,255,0.25)) drop-shadow(0 4px 10px rgba(0,0,0,0.8))" }}
+            />
+            {/* Yamal — right */}
+            <img
+              src="/players/yamal.png"
+              alt="Lamine Yamal"
+              className="absolute bottom-0 select-none pointer-events-none"
+              style={{ right: "0px", height: "155px", width: "auto", zIndex: 2, filter: "drop-shadow(-3px 0 8px rgba(0,0,0,0.6))" }}
+            />
           </div>
-          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight">
-            <span className="cm-text-gradient">CloudMarc</span>
-            <br />
-            <span className="text-white">World Cup 2026</span>
-          </h1>
-          <p className="text-slate-400 text-base sm:text-lg max-w-md mx-auto mt-4 px-4">
-            Predict scores, pick your champion, and battle your teammates on the leaderboard.
-          </p>
-          {!session ? (
-            <div className="pt-4">
-              <Link href="/signin">
-                <Button
-                  size="lg"
-                  className="text-white font-bold px-8 py-6 text-lg rounded-xl shadow-lg"
-                  style={{ background: "linear-gradient(135deg, #060097, #c10fff)" }}
-                >
-                  Join the Competition →
-                </Button>
-              </Link>
+
+          {/* Centre text */}
+          <div className="flex-1 min-w-0 max-w-lg">
+            <div
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-2 max-w-[90vw]"
+              style={{ background: "rgba(193,15,255,0.15)", color: "#c10fff", border: "1px solid rgba(193,15,255,0.3)" }}
+            >
+              🌎 USA · Mexico · Canada — Jun 11 to Jul 19, 2026
             </div>
-          ) : (
-            <p className="text-slate-400 text-sm mt-4">
-              Welcome back, {displayName} 👋
+
+            {/* World Cup started announcement */}
+            <div
+              className="wc-started text-xs sm:text-sm font-bold tracking-widest uppercase mb-1"
+              style={{ color: "#ffcd57" }}
+            >
+              🎆 The Tournament is officially underway! 🎆
+            </div>
+
+            <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight">
+              <span className="cm-text-gradient">CloudMarc</span>
+              <br />
+              <span className="text-white">World Cup 2026</span>
+            </h1>
+            <p className="text-slate-400 text-base sm:text-lg max-w-md mx-auto mt-4 px-4">
+              Predict scores, pick your champion, and battle your teammates on the leaderboard.
             </p>
-          )}
+            {!session ? (
+              <div className="pt-4">
+                <Link href="/signin">
+                  <Button
+                    size="lg"
+                    className="text-white font-bold px-8 py-6 text-lg rounded-xl shadow-lg"
+                    style={{ background: "linear-gradient(135deg, #060097, #c10fff)" }}
+                  >
+                    Join the Competition →
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <p className="text-slate-400 text-sm mt-4">
+                Welcome back, {displayName} 👋
+              </p>
+            )}
+          </div>
+
+          {/* FIFA WC 2026 Logo — visible md+ */}
+          <div className="hidden md:flex flex-col items-center flex-shrink-0 self-center">
+            <Image
+              src="/fifa-wc-2026-logo.png"
+              alt="FIFA World Cup 2026"
+              width={160}
+              height={160}
+              className="w-28 lg:w-44 select-none"
+              style={{ mixBlendMode: "screen" }}
+              priority
+            />
+          </div>
+
         </div>
       </div>
 
