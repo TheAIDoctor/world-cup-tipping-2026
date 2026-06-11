@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cloudy/check-mentions",
-      "schedule": "0 * * * *"
+      "schedule": "0 12 * * *"
     }
   ]
 }
