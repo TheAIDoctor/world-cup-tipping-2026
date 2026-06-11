@@ -9,6 +9,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { CLOUDY_EMAIL, reviewTipDecision, generateBanter, formatChatHistory } from "@/lib/cloudy-ai";
+import { getCloudyTimeContext } from "@/lib/cloudy-schedule";
 import { isMatchLocked } from "@/lib/tips-lock";
 import { NextResponse } from "next/server";
 
@@ -118,6 +119,11 @@ export async function POST(req: Request) {
   const history = formatChatHistory(
     recentThread.map((c) => ({ authorName: c.user.name ?? "Someone", content: c.content }))
   );
+
+  // Only post banter during awake hours — skip if Cloudy is sleeping
+  if (getCloudyTimeContext(new Date()) === "sleeping") {
+    return NextResponse.json({ ok: true, reviewed: upcoming.length, changed, skippedBanter: "sleeping" });
+  }
 
   // Post a banter update if anything changed or just a daily check-in
   const banterContext = changed > 0

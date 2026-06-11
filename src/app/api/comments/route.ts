@@ -45,6 +45,14 @@ export async function POST(req: Request) {
     },
   });
 
+  // Fire-and-forget: wake Cloudy if he's mentioned so he can reply in near
+  // real-time (especially useful during live matches).
+  if (/\@cloudy/i.test(trimmed)) {
+    const host = req.headers.get("host") ?? "localhost:3000";
+    const protocol = host.startsWith("localhost") ? "http" : "https";
+    fetch(`${protocol}://${host}/api/cloudy/check-mentions`, { method: "POST" }).catch(() => {});
+  }
+
   return NextResponse.json(comment, { status: 201 });
 }
 
