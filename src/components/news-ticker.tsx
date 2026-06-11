@@ -79,7 +79,7 @@ export function NewsTicker() {
         */}
         <div
           className="flex items-center whitespace-nowrap animate-ticker will-change-transform"
-          style={{ animationDuration: `${Math.max(25, items.length * 6)}s` }}
+          style={{ animationDuration: `${Math.max(60, items.length * 12)}s` }}
         >
           <span className="text-xs text-slate-200 pr-4">{band}</span>
           {/* Duplicate for seamless loop */}
