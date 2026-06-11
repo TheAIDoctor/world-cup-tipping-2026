@@ -153,6 +153,17 @@ model TopScorer {
   goals     Int    @default(0)
 }
 
+// User-submitted bug reports. Stored in the DB so reports survive email
+// delivery failures; shown to the admin in the admin panel.
+model BugReport {
+  id          String   @id @default(cuid())
+  description String
+  pageUrl     String   @default("")
+  userAgent   String   @default("")
+  reporter    String   @default("Anonymous")
+  createdAt   DateTime @default(now())
+}
+
 // Single-row table storing the actual tournament outcome for scoring predictions.
 // Admin sets this after each event resolves. Identified by a fixed id "singleton".
 model TournamentResult {

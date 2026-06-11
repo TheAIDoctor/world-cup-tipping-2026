@@ -19,7 +19,7 @@ export default async function AdminPage() {
     redirect("/");
   }
 
-  const [matches, allTeams, allUsers, tournamentResult, topScorers] = await Promise.all([
+  const [matches, allTeams, allUsers, tournamentResult, topScorers, bugReports] = await Promise.all([
     prisma.match.findMany({
       select: {
         id: true,
@@ -48,6 +48,9 @@ export default async function AdminPage() {
     }),
     prisma.tournamentResult.findUnique({ where: { id: TOURNAMENT_RESULT_ID } }),
     prisma.topScorer.findMany({ orderBy: [{ goals: "desc" }, { name: "asc" }] }),
+    prisma.bugReport
+      .findMany({ orderBy: { createdAt: "desc" }, take: 20 })
+      .catch(() => []), // table may not exist until the schema push runs
   ]);
 
   const teamOptions = allTeams.map((t) => ({
@@ -305,6 +308,33 @@ export default async function AdminPage() {
           teams={allTeams.map((t) => ({ name: t.name, flagEmoji: t.flagEmoji }))}
           scorers={topScorers}
         />
+      </section>
+
+      {/* Bug reports */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">🐛 Bug Reports</h2>
+        {bugReports.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No bug reports yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {bugReports.map((r) => (
+              <Card key={r.id}>
+                <CardContent className="py-3 px-4 space-y-1">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <span className="text-xs font-semibold">{r.reporter}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatKickoff(r.createdAt)}
+                    </span>
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap">{r.description}</p>
+                  {r.pageUrl && (
+                    <p className="text-xs text-muted-foreground truncate">{r.pageUrl}</p>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* User management: password reset */}

@@ -1,8 +1,8 @@
-// Tip locking: individual match tips lock this many hours before kickoff.
-// Games are in the USA; users are in Melbourne (AEST = UTC+10 during Jun–Jul).
-// A 24-hour lead gives Australian users a comfortable window to submit before
-// they go to sleep, even for early-morning AEST kick-offs.
-export const TIP_LOCK_HOURS = 24;
+// Tip locking: individual match tips lock at kickoff (0 hours before).
+// The result can't be known before the game starts, so there is no fairness
+// reason to lock earlier — and a longer window (the original 24 h) made every
+// near-term match un-tippable during the daily group-stage schedule.
+export const TIP_LOCK_HOURS = 0;
 
 // Public signup is restricted to CloudMarc staff email addresses.
 export const ALLOWED_SIGNUP_EMAIL_DOMAIN = "cloudmarc.com.au";

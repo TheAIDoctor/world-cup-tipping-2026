@@ -123,7 +123,7 @@ export default async function TipsPage() {
           <h1 className="text-2xl font-bold">📋 Match Tips</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Predict scores for each match. Tips lock{" "}
-            <strong>24 hours before kickoff</strong> (shown in Melbourne time).
+            <strong>at kickoff</strong> (shown in Melbourne time).
             Knockout tips score on the 90-minute result only.
           </p>
         </div>
