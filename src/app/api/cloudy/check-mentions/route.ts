@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { CLOUDY_EMAIL, generateBanter } from "@/lib/cloudy-ai";
+import { CLOUDY_EMAIL, generateBanter, formatChatHistory } from "@/lib/cloudy-ai";
 import { NextResponse } from "next/server";
 
 const MIN_MENTION_AGE_MS = 10 * 60 * 1000;  // mention must be 10+ min old (not instant)
@@ -60,6 +60,21 @@ export async function POST() {
   const mention = unresponded[0];
   const senderName = mention.user.name || "someone";
 
+  // Fetch all comments posted since Cloudy's last post so he has full context
+  const sinceDate = cloudyLastPost?.createdAt ?? new Date(Date.now() - 48 * 60 * 60 * 1000);
+  const threadSinceLastPost = await prisma.comment.findMany({
+    where: {
+      createdAt: { gt: sinceDate },
+      userId: { not: cloudy.id },
+    },
+    orderBy: { createdAt: "asc" },
+    take: 30,
+    include: { user: { select: { name: true } } },
+  });
+  const history = formatChatHistory(
+    threadSinceLastPost.map((c) => ({ authorName: c.user.name ?? "Someone", content: c.content }))
+  );
+
   const tasks = [
     "recalculating everyone's chances of winning (spoiler: it's not looking great for humans)",
     "reviewing squad injury reports",
@@ -71,7 +86,7 @@ export async function POST() {
   ];
   const task = tasks[Math.floor(Math.abs(mention.id.charCodeAt(0) + mention.id.charCodeAt(1)) % tasks.length)];
 
-  const context = `You're Cloudy ☁️, CloudMarc's AI World Cup tipping mascot. You just noticed that ${senderName} mentioned you on the banter board a little while ago. You were busy ${task} and only just saw the ping.
+  const context = `${history}You're Cloudy ☁️, CloudMarc's AI World Cup tipping mascot. You just noticed that ${senderName} mentioned you on the banter board a little while ago. You were busy ${task} and only just saw the ping.
 They wrote: "${mention.content}"
 React with a short, witty comeback. Acknowledge the delay sarcastically (e.g. "sorry was busy", "oh I see someone called", etc.) and respond to what they actually said. Max 2 sentences. Keep it playful and football-related.`;
 

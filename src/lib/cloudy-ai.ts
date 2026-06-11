@@ -55,6 +55,18 @@ export async function generateBanter(context: string): Promise<string> {
   return callCloudy(context);
 }
 
+/**
+ * Formats recent banter board comments into a readable thread that Cloudy
+ * can use as context before composing any reply or post.
+ */
+export function formatChatHistory(
+  comments: { authorName: string; content: string }[]
+): string {
+  if (comments.length === 0) return "";
+  const lines = comments.map((c) => `  ${c.authorName}: ${c.content}`).join("\n");
+  return `Banter board conversation since your last post:\n${lines}\n\n`;
+}
+
 export async function reviewTipDecision(
   homeTeam: string,
   awayTeam: string,

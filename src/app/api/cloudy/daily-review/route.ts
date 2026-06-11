@@ -8,7 +8,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { CLOUDY_EMAIL, reviewTipDecision, generateBanter } from "@/lib/cloudy-ai";
+import { CLOUDY_EMAIL, reviewTipDecision, generateBanter, formatChatHistory } from "@/lib/cloudy-ai";
 import { isMatchLocked } from "@/lib/tips-lock";
 import { NextResponse } from "next/server";
 
@@ -103,10 +103,26 @@ export async function POST(req: Request) {
     }
   }
 
+  // Fetch banter board conversation since Cloudy's last post for context
+  const cloudyLastPost = await prisma.comment.findFirst({
+    where: { userId: cloudy.id },
+    orderBy: { createdAt: "desc" },
+  });
+  const sinceDate = cloudyLastPost?.createdAt ?? new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const recentThread = await prisma.comment.findMany({
+    where: { createdAt: { gt: sinceDate }, userId: { not: cloudy.id } },
+    orderBy: { createdAt: "asc" },
+    take: 30,
+    include: { user: { select: { name: true } } },
+  });
+  const history = formatChatHistory(
+    recentThread.map((c) => ({ authorName: c.user.name ?? "Someone", content: c.content }))
+  );
+
   // Post a banter update if anything changed or just a daily check-in
   const banterContext = changed > 0
-    ? `You just updated ${changed} of your World Cup tips after reviewing the latest news. Changed: ${changedMatches.join("; ")}. Post a brief, dry-humoured update about your revised picks.`
-    : `You just completed your daily World Cup tip review and decided to keep all your picks unchanged. Post a brief smug comment about how your predictions are rock solid and don't need updating.`;
+    ? `${history}You just updated ${changed} of your World Cup tips after reviewing the latest news. Changed: ${changedMatches.join("; ")}. Post a brief, dry-humoured update about your revised picks.`
+    : `${history}You just completed your daily World Cup tip review and decided to keep all your picks unchanged. Post a brief smug comment about how your predictions are rock solid and don't need updating.`;
 
   try {
     const banter = await generateBanter(banterContext);
