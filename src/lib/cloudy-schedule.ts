@@ -11,6 +11,11 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+export interface LiveMatch {
+  homeTeam: string;
+  awayTeam: string;
+}
+
 const AEST_OFFSET = 10; // UTC+10 (Melbourne, no daylight saving in Jun–Jul)
 
 export type TimeContext = "sleeping" | "work" | "evening";
@@ -27,23 +32,38 @@ export function getCloudyTimeContext(now: Date): TimeContext {
 }
 
 /**
- * A match is "live" if any confirmed fixture kicked off in the last 105 min
- * (covers 90' + generous stoppage) or is about to kick off within 30 min.
+ * Returns all confirmed fixtures that are currently live (kicked off in the
+ * last 105 min or about to kick off within 30 min), with team names.
  */
-export async function isMatchCurrentlyLive(
+export async function getLiveMatches(
   prisma: PrismaClient,
   now: Date
-): Promise<boolean> {
+): Promise<LiveMatch[]> {
   const from = new Date(now.getTime() - 105 * 60 * 1000);
   const to   = new Date(now.getTime() +  30 * 60 * 1000);
-  const match = await prisma.match.findFirst({
+  const matches = await prisma.match.findMany({
     where: {
       date: { gte: from, lte: to },
       homeTeamId: { not: null },
       awayTeamId: { not: null },
     },
+    include: {
+      homeTeam: { select: { name: true } },
+      awayTeam: { select: { name: true } },
+    },
+    orderBy: { date: "asc" },
   });
-  return !!match;
+  return matches
+    .filter((m) => m.homeTeam?.name && m.awayTeam?.name)
+    .map((m) => ({ homeTeam: m.homeTeam!.name, awayTeam: m.awayTeam!.name }));
+}
+
+/** Convenience boolean wrapper used by the schedule gate. */
+export async function isMatchCurrentlyLive(
+  prisma: PrismaClient,
+  now: Date
+): Promise<boolean> {
+  return (await getLiveMatches(prisma, now)).length > 0;
 }
 
 /**

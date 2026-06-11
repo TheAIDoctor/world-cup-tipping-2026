@@ -2,22 +2,23 @@ import { getLeaderboard } from "@/lib/scoring";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LiveScoresPoller } from "@/components/live-scores-poller";
 
-// Public page — revalidate every 30 seconds so results land quickly
-// without hitting the DB on every concurrent request.
-export const revalidate = 30;
+export const dynamic = "force-dynamic";
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 const BOOT_MEDALS = ["🥇", "🥈", "🥉"];
 
 export default async function LeaderboardPage() {
-  const [leaderboard, topScorers, topScorerPredictions, tournamentPredictions, allTeams] = await Promise.all([
+  const [leaderboard, topScorers, topScorerPredictions, tournamentPredictions, allTeams, todayMatches] = await Promise.all([
     getLeaderboard(),
     prisma.topScorer.findMany({ orderBy: [{ goals: "desc" }, { name: "asc" }], take: 10 }),
     prisma.topScorerPrediction.findMany(),
     prisma.tournamentPrediction.findMany({ select: { champion: true } }),
     prisma.team.findMany({ select: { name: true, flagEmoji: true } }),
+    prisma.match.findMany({ select: { date: true } }),
   ]);
+  const kickoffTimes = todayMatches.map((m) => new Date(m.date).getTime());
 
   // Lookup map: team name → flag emoji
   const teamFlag: Record<string, string> = Object.fromEntries(
@@ -60,6 +61,7 @@ export default async function LeaderboardPage() {
 
   return (
     <div className="space-y-8">
+      <LiveScoresPoller kickoffTimes={kickoffTimes} />
       <header className="relative text-center py-4 sm:py-8 overflow-hidden">
         <svg
           aria-hidden="true"

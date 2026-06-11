@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export const revalidate = 1800; // cache 30 min
+export const dynamic = "force-dynamic";
 
 const MELBOURNE_TZ = "Australia/Melbourne";
 
@@ -36,7 +36,7 @@ async function fetchGoogleNewsHeadlines(): Promise<string[]> {
       const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-US&gl=US&ceid=US:en`;
       const res = await fetch(url, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; WC26TipperBot/1.0)" },
-        next: { revalidate: 1800 },
+        next: { revalidate: 60 },
       });
       if (!res.ok) continue;
       const xml = await res.text();

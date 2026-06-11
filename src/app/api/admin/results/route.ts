@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { calcMatchPoints } from "@/lib/points";
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 // Unified admin endpoint: assign teams to a knockout match, save scores,
@@ -65,6 +66,9 @@ export async function POST(req: Request) {
       );
       await prisma.matchTip.update({ where: { id: tip.id }, data: { points } });
     }
+    // Bust ISR cache so leaderboard reflects the new scores immediately
+    revalidatePath("/leaderboard");
+    revalidatePath("/");
   }
 
   // Auto-advance bracket for knockout matches with a definite winner.

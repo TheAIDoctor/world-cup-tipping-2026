@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +12,7 @@ import { computeGroupStandings } from "@/lib/groups";
 import Image from "next/image";
 import { BanterBoard } from "@/components/banter-board";
 import { NewsTicker } from "@/components/news-ticker";
+import { LiveScoresPoller } from "@/components/live-scores-poller";
 
 export default async function HomePage() {
   const session = await auth();
@@ -103,8 +106,11 @@ export default async function HomePage() {
   const top5 = leaderboard.slice(0, 5);
   const displayName = session?.user?.name || session?.user?.email?.split("@")[0];
 
+  const kickoffTimes = groupMatches.map((m) => new Date(m.date).getTime());
+
   return (
     <div className="space-y-8">
+      <LiveScoresPoller kickoffTimes={kickoffTimes} />
       {/* ── News Ticker ───────────────────────────────────────────────────── */}
       <NewsTicker />
       {/* ── Hero ──────────────────────────────────────────────────────────── */}

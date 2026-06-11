@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { calcTournamentPoints, calcTopScorerPoints } from "./points";
+import { calcMatchPoints, calcTournamentPoints, calcTopScorerPoints } from "./points";
 import { TOURNAMENT_RESULT_ID } from "./constants";
 
 export type PlayerScore = {
@@ -14,21 +14,20 @@ export type PlayerScore = {
 };
 
 /**
- * Fetches all users and computes their full point totals (match tips +
- * tournament predictions + top scorer picks) in two parallel DB queries.
- * Returns players sorted by total descending, then name ascending.
- *
- * Used by: leaderboard page, home page preview, my-tips rank calculation.
+ * Fetches all users and computes their full point totals in three parallel
+ * DB queries. Match points are computed on the fly from actual match scores
+ * crossed with each user's tips — the stored MatchTip.points field is not
+ * used so the leaderboard is always live regardless of when/how results land.
  */
 export async function getLeaderboard(): Promise<PlayerScore[]> {
-  const [users, result] = await Promise.all([
+  const [users, matches, result] = await Promise.all([
     prisma.user.findMany({
       select: {
         id: true,
         name: true,
         email: true,
         isBot: true,
-        matchTips: { select: { points: true } },
+        matchTips: { select: { matchId: true, homeScore: true, awayScore: true } },
         tournamentPrediction: {
           select: { champion: true, runnerUp: true, third: true, fourth: true },
         },
@@ -37,20 +36,37 @@ export async function getLeaderboard(): Promise<PlayerScore[]> {
         },
       },
     }),
+    // Only fetch matches that have an actual result
+    prisma.match.findMany({
+      where: { homeScore: { not: null }, awayScore: { not: null } },
+      select: { id: true, homeScore: true, awayScore: true },
+    }),
     prisma.tournamentResult.findUnique({ where: { id: TOURNAMENT_RESULT_ID } }),
   ]);
 
+  // Build a lookup: matchId → { homeScore, awayScore }
+  const resultMap = new Map(
+    matches.map((m) => [m.id, { home: m.homeScore as number, away: m.awayScore as number }])
+  );
+
   return users
     .map((u) => {
-      const matchPts = u.matchTips.reduce((sum, t) => sum + (t.points ?? 0), 0);
+      const matchPts = u.matchTips.reduce((sum, tip) => {
+        const res = resultMap.get(tip.matchId);
+        if (!res) return sum;
+        return sum + calcMatchPoints(tip.homeScore, tip.awayScore, res.home, res.away);
+      }, 0);
+
       const tournamentPts =
         u.tournamentPrediction && result
           ? calcTournamentPoints(u.tournamentPrediction, result)
           : 0;
+
       const topScorerPts =
         u.topScorerPrediction && result
           ? calcTopScorerPoints(u.topScorerPrediction, result)
           : 0;
+
       return {
         id: u.id,
         name: u.name || u.email || "Unknown",

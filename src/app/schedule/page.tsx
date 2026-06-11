@@ -1,6 +1,9 @@
+export const dynamic = "force-dynamic";
+
 import { prisma } from "@/lib/prisma";
 import { formatKickoffLongDate, kickoffDateKey, KICKOFF_TIME_ZONE_LABEL } from "@/lib/format";
 import { ScheduleMatchRow } from "@/components/schedule-match-row";
+import { LiveScoresPoller } from "@/components/live-scores-poller";
 
 export default async function SchedulePage() {
   const matches = await prisma.match.findMany({
@@ -26,8 +29,11 @@ export default async function SchedulePage() {
   const upcomingKey =
     dateKeys.find((k) => k >= todayKey) ?? dateKeys[dateKeys.length - 1];
 
+  const kickoffTimes = matches.map((m) => new Date(m.date).getTime());
+
   return (
     <div className="space-y-6">
+      <LiveScoresPoller kickoffTimes={kickoffTimes} />
       <header className="relative text-center py-6 sm:py-10 overflow-hidden">
         <svg
           aria-hidden="true"
