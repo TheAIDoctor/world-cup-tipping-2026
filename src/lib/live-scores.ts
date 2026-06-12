@@ -102,15 +102,37 @@ export async function fetchMatchScorers(
   awayScore: number
 ): Promise<MatchScorerEntry[] | null> {
   if (homeScore === 0 && awayScore === 0) return [];
+  const attempt = () => fetchMatchScorersOnce(homeTeam, awayTeam, homeScore, awayScore);
+
+  // Consensus requirement: two independent reads must agree on the exact
+  // scorer list. Totals alone can't catch misattribution (both Korea goals
+  // were once credited to one player); identical independent reads make a
+  // hallucinated attribution far less likely to persist.
+  const [a, b] = [await attempt(), await attempt()];
+  if (!a || !b) return null;
+  const key = (e: MatchScorerEntry) => `${e.name.toLowerCase()}|${e.team}|${e.goals}`;
+  const setA = new Set(a.map(key));
+  const setB = new Set(b.map(key));
+  if (setA.size !== setB.size || [...setA].some((k) => !setB.has(k))) return null;
+  return a;
+}
+
+async function fetchMatchScorersOnce(
+  homeTeam: string,
+  awayTeam: string,
+  homeScore: number,
+  awayScore: number
+): Promise<MatchScorerEntry[] | null> {
   const raw = await openrouterCall(
     `FIFA World Cup 2026 match: ${homeTeam} ${homeScore}-${awayScore} ${awayTeam} (final score).\n` +
-    `Who scored the goals in this match? List every goalscorer with how many they scored.\n` +
+    `Who scored the goals in this match? List EVERY individual goalscorer with the minute of each goal.\n` +
+    `Be precise about WHO scored each goal — do not merge different players' goals together.\n` +
     `Credit own goals to the team that benefited, with the player name suffixed " (OG)".\n` +
     `Reply with ONLY a JSON array, no other text:\n` +
-    `[{"name":"Player Name","team":"${homeTeam}","goals":1}]\n` +
+    `[{"name":"Player Name","team":"${homeTeam}","goals":1,"minutes":"67'"}]\n` +
     `"team" must be exactly "${homeTeam}" or "${awayTeam}".\n` +
     `The goals for ${homeTeam} must total ${homeScore} and for ${awayTeam} must total ${awayScore}.`,
-    400
+    500
   );
   if (!raw) return null;
   try {
