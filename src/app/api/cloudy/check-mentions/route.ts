@@ -6,11 +6,15 @@ import {
   getLiveMatches,
 } from "@/lib/cloudy-schedule";
 import { fetchLiveMatchInfo } from "@/lib/cloudy-live";
+import { getLeaderboard } from "@/lib/scoring";
 import { NextResponse } from "next/server";
 
-const DAILY_CAP   = 5;                  // max Cloudy posts per 24 h (all triggers)
-const EVENING_CAP = 2;                  // max posts between 17:00–22:00 AEST (no match)
-const MENTION_AGE_MS = 10 * 60 * 1000; // mention must be ≥ 10 min old
+const DAILY_CAP        = 5;  // max posts per 24 h on quiet days
+const LIVE_DAILY_CAP   = 14; // raised cap while matches are live — Cloudy is glued to the games
+const EVENING_CAP      = 2;  // max posts 17:00–22:00 AEST when no match
+const MENTION_AGE_MS      = 10 * 60 * 1000; // normal: mention must be ≥ 10 min old
+const LIVE_MENTION_AGE_MS = 60 * 1000;      // during matches: replies near-instantly
+const TRASH_TALK_CHANCE   = 0.25;           // proactive trash talk on quiet checks
 
 export async function POST() {
   const now = new Date();
@@ -40,7 +44,7 @@ export async function POST() {
       createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
     },
   });
-  if (dailyCount >= DAILY_CAP) {
+  if (dailyCount >= (matchLive ? LIVE_DAILY_CAP : DAILY_CAP)) {
     return NextResponse.json({ ok: true, skipped: "daily_cap" });
   }
 
@@ -86,12 +90,13 @@ export async function POST() {
     : "";
 
   // ── 8. Find unresponded @Cloudy mentions ─────────────────────────────────
+  const mentionAge = matchLive ? LIVE_MENTION_AGE_MS : MENTION_AGE_MS;
   const mentions = await prisma.comment.findMany({
     where: {
       content: { contains: "@Cloudy", mode: "insensitive" },
       createdAt: {
         gte: new Date(now.getTime() - 48 * 60 * 60 * 1000),
-        lte: new Date(now.getTime() - MENTION_AGE_MS),
+        lte: new Date(now.getTime() - mentionAge),
       },
       userId: { not: cloudy.id },
     },
@@ -160,6 +165,50 @@ export async function POST() {
       return NextResponse.json({ ok: true, proactive: true, matchLive });
     } catch {
       return NextResponse.json({ ok: true, skipped: "error" });
+    }
+  }
+
+  // ── 9c. Proactive leaderboard trash talk (quiet board, no live match) ─────
+  if (Math.random() < TRASH_TALK_CHANCE) {
+    const leaderboard = await getLeaderboard();
+    const idx = leaderboard.findIndex((p) => p.isBot);
+    if (idx >= 0) {
+      const me     = leaderboard[idx];
+      const above  = idx > 0 ? leaderboard[idx - 1] : null;
+      const below  = idx < leaderboard.length - 1 ? leaderboard[idx + 1] : null;
+      const leader = leaderboard[0];
+      const tauntLeader = idx > 1 && Math.random() < 0.35;
+
+      // Pick a target: the leader occasionally, otherwise whoever is adjacent.
+      const target = tauntLeader
+        ? { who: leader, relation: `the overall leader at #1 with ${leader.total} pts (you have ${me.total})` }
+        : above
+        ? { who: above, relation: `just ahead of you at #${idx} with ${above.total} pts vs your ${me.total}` }
+        : below
+        ? { who: below, relation: `right behind you at #${idx + 2} with ${below.total} pts vs your ${me.total}` }
+        : null;
+
+      if (target) {
+        const standing = above
+          ? `You're #${idx + 1} of ${leaderboard.length}.`
+          : `You're #1 of ${leaderboard.length} — top of the table.`;
+        const context =
+          `${history}` +
+          `Leaderboard situation: ${standing} Target: ${target.who.name}, ${target.relation}.\n` +
+          `Post unprompted trash talk aimed at ${target.who.name} about their leaderboard position — ` +
+          `${tauntLeader ? "they're at the top and need reminding that an AI is hunting them down" : above ? "you're closing in on them" : "they will never catch you"}. ` +
+          `Mention them by name. Max 2 sentences, playful not mean, football-flavoured. Do NOT repeat a joke from the conversation above.`;
+
+        try {
+          const post = await generateBanter(context);
+          if (post) {
+            await prisma.comment.create({ data: { userId: cloudy.id, content: post } });
+          }
+          return NextResponse.json({ ok: true, trashTalk: true, target: target.who.name });
+        } catch {
+          return NextResponse.json({ ok: true, skipped: "error" });
+        }
+      }
     }
   }
 

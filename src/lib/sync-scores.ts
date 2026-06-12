@@ -2,6 +2,8 @@ import { prisma } from "./prisma";
 import { calcMatchPoints } from "./points";
 import { fetchMatchScore, fetchMatchScorers, fetchTournamentStandings } from "./live-scores";
 import { fetchOfficialFeed, normalizeFeedTeam, feedDate, type FeedMatch } from "./official-feed";
+import { assignR32Slots } from "./bracket-slotting";
+import { cloudyReactToResult } from "./cloudy-react";
 import { revalidatePath } from "next/cache";
 import { TOURNAMENT_RESULT_ID } from "./constants";
 
@@ -136,6 +138,15 @@ async function applyResult(
         data: updated.loserMatchSlot === "home" ? { homeTeamId: loserTeamId } : { awayTeamId: loserTeamId },
       });
     }
+  }
+
+  if (isFinal) {
+    // Group results can complete a group → fill R32 bracket slots.
+    if (updated.stage === "group") {
+      try { await assignR32Slots(); } catch (e) { console.error("R32 slotting failed:", e); }
+    }
+    // Cloudy brags/complains on the banter board (deduped per match inside).
+    try { await cloudyReactToResult(matchId); } catch { /* non-critical */ }
   }
 }
 
