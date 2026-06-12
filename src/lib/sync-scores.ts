@@ -1,18 +1,48 @@
 import { prisma } from "./prisma";
 import { calcMatchPoints } from "./points";
-import { fetchMatchScore, fetchTopScorers, fetchTournamentStandings } from "./live-scores";
+import { fetchMatchScore, fetchMatchScorers, fetchTournamentStandings } from "./live-scores";
+import { fetchOfficialFeed, normalizeFeedTeam, feedDate, type FeedMatch } from "./official-feed";
 import { revalidatePath } from "next/cache";
 import { TOURNAMENT_RESULT_ID } from "./constants";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MASTER DATA MODEL
+//
+//   Match.date / homeScore / awayScore  — kickoff times and official results.
+//     Source of truth: the official fixture feed (fetchOfficialFeed), which
+//     mirrors FIFA's schedule and final scores. Perplexity (with mandatory
+//     consensus double-reads) is used ONLY for live in-progress updates while
+//     the feed has no score yet; whatever it writes is overwritten by the
+//     official feed score as soon as one exists, every sync cycle.
+//
+//   MatchGoal — who scored in each match. Fetched per finished match and
+//     hard-validated: per-team goal totals must equal the official score or
+//     the whole list is rejected.
+//
+//   TopScorer — the Golden Boot table. Never fetched as a standalone list;
+//     always derived by aggregating MatchGoal rows.
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Module-level rate limits. Fluid Compute reuses instances so these hold
 // within a deployment; benign duplicates across cold starts.
-const lastMatchFetch  = new Map<string, number>();
+const lastMatchFetch   = new Map<string, number>();
 const MATCH_INTERVAL   = 5  * 60 * 1000; // unscored matches in the active window
 const RECHECK_INTERVAL = 30 * 60 * 1000; // re-verification of already-scored matches
-const SCORER_INTERVAL  = 15 * 60 * 1000;
-const FINAL_INTERVAL   = 30 * 60 * 1000;
-let lastScorerFetch   = 0;
-let lastFinalFetch    = 0;
+const FINAL_INTERVAL   = 30 * 60 * 1000; // tournament standings
+let lastFinalFetch     = 0;
+
+type DbMatch = {
+  id: string;
+  matchNumber: number;
+  stage: string;
+  date: Date;
+  homeScore: number | null;
+  awayScore: number | null;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  homeTeam: { name: string } | null;
+  awayTeam: { name: string } | null;
+};
 
 function determineWinner(m: {
   homeTeamId: string | null;
@@ -31,65 +61,82 @@ function determineWinner(m: {
   return null;
 }
 
-// Common name variants Perplexity may return vs. the official names in our
-// Team table.
-const TEAM_ALIASES: Record<string, string> = {
-  "usa": "United States",
-  "united states of america": "United States",
-  "south korea": "Korea Republic",
-  "korea": "Korea Republic",
-  "czech republic": "Czechia",
-  "turkey": "Türkiye",
-  "turkiye": "Türkiye",
-  "bosnia herzegovina": "Bosnia and Herzegovina",
-  "bosnia": "Bosnia and Herzegovina",
-  "cabo verde": "Cape Verde",
-  "cote d'ivoire": "Ivory Coast",
-  "côte d'ivoire": "Ivory Coast",
-  "curacao": "Curaçao",
-  "congo dr": "DR Congo",
-  "democratic republic of the congo": "DR Congo",
-};
+/**
+ * Finds the official feed entry for a DB match.
+ * Knockout matches share FIFA's official numbering (73–104) with the feed;
+ * group matches are matched by their unique team pairing because the feed's
+ * group-stage match numbers differ from ours. `flipped` is set when the feed
+ * lists our home team as away.
+ */
+function findFeedMatch(
+  feed: FeedMatch[],
+  match: DbMatch
+): { f: FeedMatch; flipped: boolean } | null {
+  if (match.stage !== "group") {
+    const f = feed.find((x) => x.MatchNumber === match.matchNumber);
+    return f ? { f, flipped: false } : null;
+  }
+  if (!match.homeTeam || !match.awayTeam) return null;
+  const h = match.homeTeam.name.toLowerCase();
+  const a = match.awayTeam.name.toLowerCase();
+  for (const f of feed) {
+    if (!f.Group) continue;
+    const fh = normalizeFeedTeam(f.HomeTeam).toLowerCase();
+    const fa = normalizeFeedTeam(f.AwayTeam).toLowerCase();
+    if (fh === h && fa === a) return { f, flipped: false };
+    if (fh === a && fa === h) return { f, flipped: true };
+  }
+  return null;
+}
 
 /**
- * Hard-validates Perplexity's golden boot list against our own database so
- * qualifying-campaign / club-football tallies can never leak in:
- *  - the player's team must be one of the 48 qualified teams, and
- *  - their goal count must be plausible given how many tournament matches
- *    their team has actually completed (≤ 5 goals per completed match —
- *    no player has ever scored more than 5 in a World Cup game).
+ * Writes a (new) result for a match: updates the score, rescores every tip,
+ * clears any goalscorer rows recorded against the old score so they are
+ * re-fetched and re-validated, and (for finished knockout games) advances the
+ * bracket.
  */
-async function validateScorers(
-  scorers: { name: string; team: string; goals: number; flagEmoji: string }[]
-): Promise<{ name: string; team: string; goals: number; flagEmoji: string }[]> {
-  const [teams, completed] = await Promise.all([
-    prisma.team.findMany({ select: { id: true, name: true } }),
-    prisma.match.findMany({
-      where: { homeScore: { not: null }, awayScore: { not: null } },
-      select: { homeTeamId: true, awayTeamId: true },
-    }),
-  ]);
+async function applyResult(
+  matchId: string,
+  homeScore: number,
+  awayScore: number,
+  isFinal: boolean
+): Promise<void> {
+  const updated = await prisma.match.update({
+    where: { id: matchId },
+    data: { homeScore, awayScore },
+    include: { homeTeam: true, awayTeam: true },
+  });
 
-  const teamByName = new Map(teams.map((t) => [t.name.toLowerCase(), t]));
-  const playedByTeam = new Map<string, number>();
-  for (const m of completed) {
-    if (m.homeTeamId) playedByTeam.set(m.homeTeamId, (playedByTeam.get(m.homeTeamId) ?? 0) + 1);
-    if (m.awayTeamId) playedByTeam.set(m.awayTeamId, (playedByTeam.get(m.awayTeamId) ?? 0) + 1);
+  const tips = await prisma.matchTip.findMany({ where: { matchId } });
+  for (const tip of tips) {
+    await prisma.matchTip.update({
+      where: { id: tip.id },
+      data: { points: calcMatchPoints(tip.homeScore, tip.awayScore, homeScore, awayScore) },
+    });
   }
 
-  return scorers
-    .map((s) => {
-      const key = s.team.trim().toLowerCase();
-      const canonical = TEAM_ALIASES[key] ?? s.team.trim();
-      const team = teamByName.get(canonical.toLowerCase());
-      return team ? { ...s, team: canonical, teamId: team.id } : null;
-    })
-    .filter((s): s is NonNullable<typeof s> => s !== null)
-    .filter((s) => {
-      const maxPlausible = (playedByTeam.get(s.teamId) ?? 0) * 5;
-      return s.goals > 0 && s.goals <= maxPlausible;
-    })
-    .map(({ name, team, goals, flagEmoji }) => ({ name, team, goals, flagEmoji }));
+  // Scorers recorded against a superseded score are no longer trustworthy.
+  await prisma.matchGoal.deleteMany({ where: { matchId } });
+
+  if (isFinal && updated.stage !== "group") {
+    const winnerTeamId = determineWinner(updated);
+    const loserTeamId =
+      winnerTeamId === updated.homeTeamId ? updated.awayTeamId :
+      winnerTeamId === updated.awayTeamId ? updated.homeTeamId : null;
+
+    if (winnerTeamId && updated.nextMatchId && updated.nextMatchSlot) {
+      await prisma.match.update({
+        where: { id: updated.nextMatchId },
+        data: updated.nextMatchSlot === "home" ? { homeTeamId: winnerTeamId } : { awayTeamId: winnerTeamId },
+      });
+    }
+    if (loserTeamId && updated.loserMatchId && updated.loserMatchSlot) {
+      await prisma.match.update({
+        where: { id: updated.loserMatchId },
+        data: updated.loserMatchSlot === "home" ? { homeTeamId: loserTeamId } : { awayTeamId: loserTeamId },
+      });
+    }
+  }
 }
 
 export async function runScoreSync(forceSync = false): Promise<{ checked: number }> {
@@ -97,21 +144,26 @@ export async function runScoreSync(forceSync = false): Promise<{ checked: number
   const nowMs = now.getTime();
   let anyUpdate = false;
 
+  // The official feed is fetched once per sync (internally cached 2 min).
+  const feed = await fetchOfficialFeed();
+
   // ── 1. Match scores ──────────────────────────────────────────────────────
-  // Active window is ±8 h around the stored kickoff. The wide window is
-  // deliberate: stored kickoff times have proven inaccurate by hours (the
-  // KOR–CZE kickoff was stored 4 h late), and it also re-verifies recently
-  // finished matches so a wrong stored result self-corrects instead of
-  // sticking forever. Perplexity answering "not_started" filters out games
-  // that genuinely haven't kicked off.
-  const from         = new Date(nowMs - 8 * 60 * 60 * 1000);
-  const to           = new Date(nowMs + 8 * 60 * 60 * 1000);
-  const catchUpFrom  = new Date(nowMs - 48 * 60 * 60 * 1000);
+  // Active window is ±8 h around the stored kickoff: covers live games, keeps
+  // re-verifying recently finished ones so any wrong result self-corrects,
+  // and tolerates schedule drift.
+  const from        = new Date(nowMs - 8 * 60 * 60 * 1000);
+  const to          = new Date(nowMs + 8 * 60 * 60 * 1000);
+  const catchUpFrom = new Date(nowMs - 48 * 60 * 60 * 1000);
+
+  const matchInclude = {
+    homeTeam: { select: { name: true } },
+    awayTeam: { select: { name: true } },
+  } as const;
 
   const [activeMatches, catchUpMatches] = await Promise.all([
     prisma.match.findMany({
       where: { date: { gte: from, lte: to }, homeTeamId: { not: null }, awayTeamId: { not: null } },
-      include: { homeTeam: { select: { name: true } }, awayTeam: { select: { name: true } } },
+      include: matchInclude,
     }),
     prisma.match.findMany({
       where: {
@@ -119,7 +171,7 @@ export async function runScoreSync(forceSync = false): Promise<{ checked: number
         homeTeamId: { not: null }, awayTeamId: { not: null },
         homeScore: null,
       },
-      include: { homeTeam: { select: { name: true } }, awayTeam: { select: { name: true } } },
+      include: matchInclude,
     }),
   ]);
 
@@ -133,13 +185,24 @@ export async function runScoreSync(forceSync = false): Promise<{ checked: number
   for (const match of allMatches) {
     if (!match.homeTeam?.name || !match.awayTeam?.name) continue;
 
-    // Matches that already have a result are only re-verified every 30 min;
-    // unscored matches poll at the usual 5-min cadence.
     const interval = match.homeScore !== null ? RECHECK_INTERVAL : MATCH_INTERVAL;
     const last = lastMatchFetch.get(match.id) ?? 0;
     if (!forceSync && nowMs - last < interval) continue;
     lastMatchFetch.set(match.id, nowMs);
 
+    // 1a. Official feed result — authoritative, no second opinion needed.
+    const feedEntry = feed ? findFeedMatch(feed, match) : null;
+    if (feedEntry && feedEntry.f.HomeTeamScore !== null && feedEntry.f.AwayTeamScore !== null) {
+      const officialHome = feedEntry.flipped ? feedEntry.f.AwayTeamScore : feedEntry.f.HomeTeamScore;
+      const officialAway = feedEntry.flipped ? feedEntry.f.HomeTeamScore : feedEntry.f.AwayTeamScore;
+      if (match.homeScore !== officialHome || match.awayScore !== officialAway) {
+        await applyResult(match.id, officialHome, officialAway, feedEntry.f.Winner !== "");
+        anyUpdate = true;
+      }
+      continue; // never let an LLM read override an official score
+    }
+
+    // 1b. No official score yet — Perplexity live updates, consensus-gated.
     const score = await fetchMatchScore(match.homeTeam.name, match.awayTeam.name);
     // Only trust an explicit live/finished answer. "not_started" means the
     // game hasn't kicked off; "unknown" (any unrecognised status) must never
@@ -148,94 +211,98 @@ export async function runScoreSync(forceSync = false): Promise<{ checked: number
 
     const scoreChanged =
       match.homeScore !== score.homeScore || match.awayScore !== score.awayScore;
+    if (!scoreChanged) continue;
 
-    if (scoreChanged) {
-      // Consensus check: a result is only persisted when a second,
-      // independent fetch agrees exactly. One hallucinated read can no
-      // longer corrupt results — worst case the update lands next cycle.
-      const confirm = await fetchMatchScore(match.homeTeam.name, match.awayTeam.name);
-      if (
-        !confirm ||
-        (confirm.status !== "live" && confirm.status !== "finished") ||
-        confirm.homeScore !== score.homeScore ||
-        confirm.awayScore !== score.awayScore
-      ) {
-        console.warn(
-          `Score consensus failed for ${match.homeTeam.name} v ${match.awayTeam.name}: ` +
-          `${score.homeScore}-${score.awayScore} (${score.status}) vs ` +
-          `${confirm ? `${confirm.homeScore}-${confirm.awayScore} (${confirm.status})` : "null"} — skipping`
-        );
-        continue;
-      }
-      // Treat the result as final only when both reads say finished.
-      if (confirm.status !== "finished") score.status = "live";
+    // Consensus check: a result is only persisted when a second, independent
+    // fetch agrees exactly. One hallucinated read can no longer corrupt
+    // results — worst case the update lands next cycle.
+    const confirm = await fetchMatchScore(match.homeTeam.name, match.awayTeam.name);
+    if (
+      !confirm ||
+      (confirm.status !== "live" && confirm.status !== "finished") ||
+      confirm.homeScore !== score.homeScore ||
+      confirm.awayScore !== score.awayScore
+    ) {
+      console.warn(
+        `Score consensus failed for ${match.homeTeam.name} v ${match.awayTeam.name}: ` +
+        `${score.homeScore}-${score.awayScore} (${score.status}) vs ` +
+        `${confirm ? `${confirm.homeScore}-${confirm.awayScore} (${confirm.status})` : "null"} — skipping`
+      );
+      continue;
     }
 
-    if (scoreChanged) {
-      const updated = await prisma.match.update({
-        where: { id: match.id },
-        data: { homeScore: score.homeScore, awayScore: score.awayScore },
-        include: { homeTeam: true, awayTeam: true },
-      });
-
-      const tips = await prisma.matchTip.findMany({ where: { matchId: match.id } });
-      for (const tip of tips) {
-        await prisma.matchTip.update({
-          where: { id: tip.id },
-          data: { points: calcMatchPoints(tip.homeScore, tip.awayScore, score.homeScore, score.awayScore) },
-        });
-      }
-
-      if (score.status === "finished" && updated.stage !== "group") {
-        const winnerTeamId = determineWinner(updated);
-        const loserTeamId =
-          winnerTeamId === updated.homeTeamId ? updated.awayTeamId :
-          winnerTeamId === updated.awayTeamId ? updated.homeTeamId : null;
-
-        if (winnerTeamId && updated.nextMatchId && updated.nextMatchSlot) {
-          await prisma.match.update({
-            where: { id: updated.nextMatchId },
-            data: updated.nextMatchSlot === "home" ? { homeTeamId: winnerTeamId } : { awayTeamId: winnerTeamId },
-          });
-        }
-        if (loserTeamId && updated.loserMatchId && updated.loserMatchSlot) {
-          await prisma.match.update({
-            where: { id: updated.loserMatchId },
-            data: updated.loserMatchSlot === "home" ? { homeTeamId: loserTeamId } : { awayTeamId: loserTeamId },
-          });
-        }
-      }
-
-      anyUpdate = true;
-    }
+    const isFinal = score.status === "finished" && confirm.status === "finished";
+    await applyResult(match.id, score.homeScore, score.awayScore, isFinal);
+    anyUpdate = true;
   }
 
-  // ── 2. Golden boot ───────────────────────────────────────────────────────
-  // Refresh whenever the tournament is underway (any completed match exists),
-  // not only while a match is live — goals need to show up after full time too.
-  const tournamentUnderway =
-    allMatches.length > 0 ||
-    (await prisma.match.count({ where: { homeScore: { not: null } } })) > 0;
-  if (tournamentUnderway && (forceSync || nowMs - lastScorerFetch >= SCORER_INTERVAL)) {
-    lastScorerFetch = nowMs;
-    const scorers = await fetchTopScorers();
-    if (scorers.length > 0) {
-      const valid = await validateScorers(scorers);
-      if (valid.length > 0) {
-        // Replace, don't merge: stale entries (e.g. qualifying-campaign
-        // tallies from an earlier bad fetch) must not survive.
-        await prisma.topScorer.deleteMany({
-          where: { name: { notIn: valid.map((v) => v.name) } },
-        });
-        for (const s of valid) {
-          await prisma.topScorer.upsert({
-            where: { name: s.name },
-            create: { name: s.name, team: s.team, flagEmoji: s.flagEmoji, goals: s.goals },
-            update: { team: s.team, flagEmoji: s.flagEmoji, goals: s.goals },
-          });
-        }
-        anyUpdate = true;
-      }
+  // ── 2. Goalscorers per finished match → Golden Boot ─────────────────────
+  // A match needs scorers when it has a final result but no MatchGoal rows.
+  // "Final" = the official feed has a winner for it, or kickoff was over
+  // 2.5 h ago. 0-0 games are excluded (nothing to record).
+  const needScorers = (await prisma.match.findMany({
+    where: {
+      homeScore: { not: null },
+      awayScore: { not: null },
+      goals: { none: {} },
+      NOT: { homeScore: 0, awayScore: 0 },
+      homeTeamId: { not: null },
+      awayTeamId: { not: null },
+    },
+    include: matchInclude,
+    orderBy: { date: "asc" },
+    take: 5, // bound API usage per sync
+  })).filter((m) => {
+    const fe = feed ? findFeedMatch(feed, m as DbMatch) : null;
+    if (fe?.f.Winner) return true;
+    return m.date.getTime() < nowMs - 150 * 60 * 1000;
+  });
+
+  for (const m of needScorers) {
+    if (!m.homeTeam?.name || !m.awayTeam?.name) continue;
+    const scorers = await fetchMatchScorers(
+      m.homeTeam.name, m.awayTeam.name,
+      m.homeScore as number, m.awayScore as number
+    );
+    if (!scorers || scorers.length === 0) continue; // validation failed — retry next sync
+    await prisma.matchGoal.createMany({
+      data: scorers.map((s) => ({
+        matchId: m.id,
+        playerName: s.name,
+        team: s.team,
+        goals: s.goals,
+      })),
+      skipDuplicates: true,
+    });
+    anyUpdate = true;
+  }
+
+  // Rebuild the Golden Boot table from MatchGoal aggregation (own goals,
+  // suffixed " (OG)", never count toward the race).
+  if (anyUpdate || forceSync) {
+    const allGoals = await prisma.matchGoal.findMany();
+    const tally = new Map<string, { team: string; goals: number }>();
+    for (const g of allGoals) {
+      if (g.playerName.includes("(OG)")) continue;
+      const cur = tally.get(g.playerName);
+      tally.set(g.playerName, { team: g.team, goals: (cur?.goals ?? 0) + g.goals });
+    }
+    const teams = await prisma.team.findMany({ select: { name: true, flagEmoji: true } });
+    const flagByTeam = new Map(teams.map((t) => [t.name, t.flagEmoji]));
+    const top = [...tally.entries()]
+      .map(([name, v]) => ({ name, team: v.team, goals: v.goals, flagEmoji: flagByTeam.get(v.team) ?? "" }))
+      .sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name))
+      .slice(0, 10);
+
+    await prisma.topScorer.deleteMany({
+      where: { name: { notIn: top.map((t) => t.name) } },
+    });
+    for (const s of top) {
+      await prisma.topScorer.upsert({
+        where: { name: s.name },
+        create: s,
+        update: { team: s.team, flagEmoji: s.flagEmoji, goals: s.goals },
+      });
     }
   }
 
@@ -250,6 +317,21 @@ export async function runScoreSync(forceSync = false): Promise<{ checked: number
         update: standings,
       });
       anyUpdate = true;
+    }
+  }
+
+  // ── 4. Schedule drift guard ──────────────────────────────────────────────
+  // Kickoff times in the active window are continuously reconciled against
+  // the official feed so tip-locking always uses the real kickoff.
+  if (feed) {
+    for (const match of allMatches) {
+      const fe = findFeedMatch(feed, match);
+      if (!fe) continue;
+      const official = feedDate(fe.f);
+      if (match.date.getTime() !== official.getTime()) {
+        await prisma.match.update({ where: { id: match.id }, data: { date: official } });
+        anyUpdate = true;
+      }
     }
   }
 

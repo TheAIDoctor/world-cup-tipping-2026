@@ -84,6 +84,58 @@ export async function fetchMatchScore(
   }
 }
 
+export type MatchScorerEntry = {
+  name: string;
+  team: string;
+  goals: number;
+};
+
+/**
+ * Fetches the goalscorers for one specific finished match. The caller
+ * validates the result against the official score (per-team goal totals must
+ * match) before persisting, so a hallucinated list cannot leak in.
+ */
+export async function fetchMatchScorers(
+  homeTeam: string,
+  awayTeam: string,
+  homeScore: number,
+  awayScore: number
+): Promise<MatchScorerEntry[] | null> {
+  if (homeScore === 0 && awayScore === 0) return [];
+  const raw = await openrouterCall(
+    `FIFA World Cup 2026 match: ${homeTeam} ${homeScore}-${awayScore} ${awayTeam} (final score).\n` +
+    `Who scored the goals in this match? List every goalscorer with how many they scored.\n` +
+    `Credit own goals to the team that benefited, with the player name suffixed " (OG)".\n` +
+    `Reply with ONLY a JSON array, no other text:\n` +
+    `[{"name":"Player Name","team":"${homeTeam}","goals":1}]\n` +
+    `"team" must be exactly "${homeTeam}" or "${awayTeam}".\n` +
+    `The goals for ${homeTeam} must total ${homeScore} and for ${awayTeam} must total ${awayScore}.`,
+    400
+  );
+  if (!raw) return null;
+  try {
+    const jsonMatch = raw.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return null;
+    const parsed = JSON.parse(jsonMatch[0]) as unknown[];
+    const entries = parsed
+      .filter((e): e is Record<string, unknown> => typeof e === "object" && e !== null)
+      .map((e) => ({
+        name: String(e.name ?? "").trim(),
+        team: String(e.team ?? "").trim(),
+        goals: Math.max(0, Number(e.goals) || 0),
+      }))
+      .filter((e) => e.name && e.goals > 0);
+
+    // Hard validation: per-team totals must equal the official score.
+    const homeTotal = entries.filter((e) => e.team === homeTeam).reduce((s, e) => s + e.goals, 0);
+    const awayTotal = entries.filter((e) => e.team === awayTeam).reduce((s, e) => s + e.goals, 0);
+    if (homeTotal !== homeScore || awayTotal !== awayScore) return null;
+    return entries;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Fetches the current FIFA World Cup 2026 top scorer (golden boot) standings.
  * Returns up to 10 players sorted by goals descending.

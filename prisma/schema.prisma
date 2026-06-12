@@ -101,6 +101,26 @@ model Match {
   loserMatch         Match?     @relation("LoserMatch", fields: [loserMatchId], references: [id])
   loserFeederMatches Match[]    @relation("LoserMatch")
   tips               MatchTip[]
+  goals              MatchGoal[]
+  // Official bracket slot codes from the FIFA schedule (R32 only), e.g.
+  // "1A" (Group A winner), "2B" (runner-up), "3ABCDF" (third-place pool).
+  homeSlotCode       String?
+  awaySlotCode       String?
+}
+
+// Master record of who scored in each match. Populated automatically once a
+// match result is final and validated so the per-team goal counts sum to the
+// official score. The Golden Boot standings (TopScorer) are derived from this
+// table by aggregation — never fetched as a standalone list.
+model MatchGoal {
+  id         String @id @default(cuid())
+  matchId    String
+  match      Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  playerName String
+  team       String
+  goals      Int    @default(1)
+
+  @@unique([matchId, playerName])
 }
 
 model MatchTip {
