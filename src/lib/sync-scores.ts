@@ -7,9 +7,10 @@ import { TOURNAMENT_RESULT_ID } from "./constants";
 // Module-level rate limits. Fluid Compute reuses instances so these hold
 // within a deployment; benign duplicates across cold starts.
 const lastMatchFetch  = new Map<string, number>();
-const MATCH_INTERVAL  = 5  * 60 * 1000;
-const SCORER_INTERVAL = 15 * 60 * 1000;
-const FINAL_INTERVAL  = 30 * 60 * 1000;
+const MATCH_INTERVAL   = 5  * 60 * 1000; // unscored matches in the active window
+const RECHECK_INTERVAL = 30 * 60 * 1000; // re-verification of already-scored matches
+const SCORER_INTERVAL  = 15 * 60 * 1000;
+const FINAL_INTERVAL   = 30 * 60 * 1000;
 let lastScorerFetch   = 0;
 let lastFinalFetch    = 0;
 
@@ -97,11 +98,17 @@ export async function runScoreSync(forceSync = false): Promise<{ checked: number
   let anyUpdate = false;
 
   // ── 1. Match scores ──────────────────────────────────────────────────────
-  const from         = new Date(nowMs - 115 * 60 * 1000);
-  const to           = new Date(nowMs +   5 * 60 * 1000);
-  const catchUpFrom  = new Date(nowMs -  48 * 60 * 60 * 1000);
+  // Active window is ±8 h around the stored kickoff. The wide window is
+  // deliberate: stored kickoff times have proven inaccurate by hours (the
+  // KOR–CZE kickoff was stored 4 h late), and it also re-verifies recently
+  // finished matches so a wrong stored result self-corrects instead of
+  // sticking forever. Perplexity answering "not_started" filters out games
+  // that genuinely haven't kicked off.
+  const from         = new Date(nowMs - 8 * 60 * 60 * 1000);
+  const to           = new Date(nowMs + 8 * 60 * 60 * 1000);
+  const catchUpFrom  = new Date(nowMs - 48 * 60 * 60 * 1000);
 
-  const [liveMatches, catchUpMatches] = await Promise.all([
+  const [activeMatches, catchUpMatches] = await Promise.all([
     prisma.match.findMany({
       where: { date: { gte: from, lte: to }, homeTeamId: { not: null }, awayTeamId: { not: null } },
       include: { homeTeam: { select: { name: true } }, awayTeam: { select: { name: true } } },
@@ -117,7 +124,7 @@ export async function runScoreSync(forceSync = false): Promise<{ checked: number
   ]);
 
   const seen = new Set<string>();
-  const allMatches = [...liveMatches, ...catchUpMatches].filter((m) => {
+  const allMatches = [...activeMatches, ...catchUpMatches].filter((m) => {
     if (seen.has(m.id)) return false;
     seen.add(m.id);
     return true;
@@ -126,15 +133,43 @@ export async function runScoreSync(forceSync = false): Promise<{ checked: number
   for (const match of allMatches) {
     if (!match.homeTeam?.name || !match.awayTeam?.name) continue;
 
+    // Matches that already have a result are only re-verified every 30 min;
+    // unscored matches poll at the usual 5-min cadence.
+    const interval = match.homeScore !== null ? RECHECK_INTERVAL : MATCH_INTERVAL;
     const last = lastMatchFetch.get(match.id) ?? 0;
-    if (!forceSync && nowMs - last < MATCH_INTERVAL) continue;
+    if (!forceSync && nowMs - last < interval) continue;
     lastMatchFetch.set(match.id, nowMs);
 
     const score = await fetchMatchScore(match.homeTeam.name, match.awayTeam.name);
-    if (!score || score.status === "not_started") continue;
+    // Only trust an explicit live/finished answer. "not_started" means the
+    // game hasn't kicked off; "unknown" (any unrecognised status) must never
+    // be written — a hallucinated pre-kickoff "0-0" once leaked in that way.
+    if (!score || (score.status !== "live" && score.status !== "finished")) continue;
 
     const scoreChanged =
       match.homeScore !== score.homeScore || match.awayScore !== score.awayScore;
+
+    if (scoreChanged) {
+      // Consensus check: a result is only persisted when a second,
+      // independent fetch agrees exactly. One hallucinated read can no
+      // longer corrupt results — worst case the update lands next cycle.
+      const confirm = await fetchMatchScore(match.homeTeam.name, match.awayTeam.name);
+      if (
+        !confirm ||
+        (confirm.status !== "live" && confirm.status !== "finished") ||
+        confirm.homeScore !== score.homeScore ||
+        confirm.awayScore !== score.awayScore
+      ) {
+        console.warn(
+          `Score consensus failed for ${match.homeTeam.name} v ${match.awayTeam.name}: ` +
+          `${score.homeScore}-${score.awayScore} (${score.status}) vs ` +
+          `${confirm ? `${confirm.homeScore}-${confirm.awayScore} (${confirm.status})` : "null"} — skipping`
+        );
+        continue;
+      }
+      // Treat the result as final only when both reads say finished.
+      if (confirm.status !== "finished") score.status = "live";
+    }
 
     if (scoreChanged) {
       const updated = await prisma.match.update({
