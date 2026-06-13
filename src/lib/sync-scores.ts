@@ -28,8 +28,7 @@ import { TOURNAMENT_RESULT_ID } from "./constants";
 // Module-level rate limits. Fluid Compute reuses instances so these hold
 // within a deployment; benign duplicates across cold starts.
 const lastMatchFetch   = new Map<string, number>();
-const MATCH_INTERVAL   = 5  * 60 * 1000; // unscored matches in the active window
-const RECHECK_INTERVAL = 30 * 60 * 1000; // re-verification of already-scored matches
+const MATCH_INTERVAL   = 5  * 60 * 1000; // Perplexity live-poll cadence per match
 const FINAL_INTERVAL   = 30 * 60 * 1000; // tournament standings
 let lastFinalFetch     = 0;
 
@@ -97,6 +96,29 @@ function findFeedMatch(
  * re-fetched and re-validated, and (for finished knockout games) advances the
  * bracket.
  */
+/**
+ * Records a live, in-progress score for DISPLAY ONLY. Writes the isolated
+ * live* fields and never touches homeScore/awayScore, so points, standings,
+ * goalscorers, and the bracket are never affected by a non-final score.
+ */
+async function applyLiveScore(
+  matchId: string,
+  liveHomeScore: number,
+  liveAwayScore: number
+): Promise<void> {
+  await prisma.match.update({
+    where: { id: matchId },
+    data: { liveHomeScore, liveAwayScore, liveStatus: "live" },
+  });
+}
+
+/**
+ * Writes a CONFIRMED FINAL official result: sets homeScore/awayScore, clears
+ * the live display fields, rescores every tip, refreshes goalscorers, and
+ * (for finished knockout games) advances the bracket. Only ever called with a
+ * result confirmed final by the official feed (or the strict Perplexity
+ * fallback), never with a live in-progress score.
+ */
 async function applyResult(
   matchId: string,
   homeScore: number,
@@ -105,7 +127,7 @@ async function applyResult(
 ): Promise<void> {
   const updated = await prisma.match.update({
     where: { id: matchId },
-    data: { homeScore, awayScore },
+    data: { homeScore, awayScore, liveHomeScore: null, liveAwayScore: null, liveStatus: null },
     include: { homeTeam: true, awayTeam: true },
   });
 
@@ -196,37 +218,46 @@ export async function runScoreSync(forceSync = false): Promise<{ checked: number
   for (const match of allMatches) {
     if (!match.homeTeam?.name || !match.awayTeam?.name) continue;
 
-    const interval = match.homeScore !== null ? RECHECK_INTERVAL : MATCH_INTERVAL;
-    const last = lastMatchFetch.get(match.id) ?? 0;
-    if (!forceSync && nowMs - last < interval) continue;
-    lastMatchFetch.set(match.id, nowMs);
-
-    // 1a. Official feed result — authoritative, no second opinion needed.
+    // ── 1a. Official feed — ALWAYS consulted (free + authoritative). ────────
+    // A score present in this results feed means the match is officially over,
+    // so it is the confirmed FINAL result. It is never rate-limited and always
+    // wins, so a wrong live-sourced score self-corrects the moment the feed
+    // publishes (this is what fixes the 3-0 → 4-1 USA/Paraguay case).
     const feedEntry = feed ? findFeedMatch(feed, match) : null;
     if (feedEntry && feedEntry.f.HomeTeamScore !== null && feedEntry.f.AwayTeamScore !== null) {
       const officialHome = feedEntry.flipped ? feedEntry.f.AwayTeamScore : feedEntry.f.HomeTeamScore;
       const officialAway = feedEntry.flipped ? feedEntry.f.HomeTeamScore : feedEntry.f.AwayTeamScore;
       if (match.homeScore !== officialHome || match.awayScore !== officialAway) {
-        await applyResult(match.id, officialHome, officialAway, feedEntry.f.Winner !== "");
+        await applyResult(match.id, officialHome, officialAway, true);
+        anyUpdate = true;
+      } else if (match.liveStatus !== null) {
+        // Already correct & final — clear any leftover live display fields.
+        await prisma.match.update({
+          where: { id: match.id },
+          data: { liveHomeScore: null, liveAwayScore: null, liveStatus: null },
+        });
         anyUpdate = true;
       }
-      continue; // never let an LLM read override an official score
+      continue;
     }
 
-    // 1b. No official score yet — Perplexity live updates, consensus-gated.
+    // Once a match has a FINAL result, only the official feed may ever change
+    // it. Perplexity never re-touches a finalised match.
+    if (match.homeScore !== null) continue;
+
+    // ── 1b. No official result yet — Perplexity for LIVE display only. ──────
+    // Rate-limit the paid Perplexity calls; the feed above is free.
+    const last = lastMatchFetch.get(match.id) ?? 0;
+    if (!forceSync && nowMs - last < MATCH_INTERVAL) continue;
+    lastMatchFetch.set(match.id, nowMs);
+
     const score = await fetchMatchScore(match.homeTeam.name, match.awayTeam.name);
-    // Only trust an explicit live/finished answer. "not_started" means the
-    // game hasn't kicked off; "unknown" (any unrecognised status) must never
-    // be written — a hallucinated pre-kickoff "0-0" once leaked in that way.
+    // Only trust an explicit live/finished answer; "not_started"/"unknown"
+    // must never be stored.
     if (!score || (score.status !== "live" && score.status !== "finished")) continue;
 
-    const scoreChanged =
-      match.homeScore !== score.homeScore || match.awayScore !== score.awayScore;
-    if (!scoreChanged) continue;
-
-    // Consensus check: a result is only persisted when a second, independent
-    // fetch agrees exactly. One hallucinated read can no longer corrupt
-    // results — worst case the update lands next cycle.
+    // Consensus check: two independent reads must agree exactly before we
+    // store anything — one hallucinated read can't move the needle.
     const confirm = await fetchMatchScore(match.homeTeam.name, match.awayTeam.name);
     if (
       !confirm ||
@@ -242,8 +273,24 @@ export async function runScoreSync(forceSync = false): Promise<{ checked: number
       continue;
     }
 
-    const isFinal = score.status === "finished" && confirm.status === "finished";
-    await applyResult(match.id, score.homeScore, score.awayScore, isFinal);
+    // Strict FINAL fallback (only if the feed is lagging): both reads say
+    // "finished" AND the match has been underway long enough to plausibly be
+    // over (≥ 2.5 h since kickoff). A mid-game "live 3-0" can never satisfy
+    // this — it stays a live display score until the feed confirms the final.
+    const hoursSinceKickoff = (nowMs - match.date.getTime()) / (60 * 60 * 1000);
+    const confirmedFinal =
+      score.status === "finished" && confirm.status === "finished" && hoursSinceKickoff >= 2.5;
+
+    if (confirmedFinal) {
+      await applyResult(match.id, score.homeScore, score.awayScore, true);
+    } else {
+      // In-progress: display only, never a result.
+      if (match.liveHomeScore !== score.homeScore || match.liveAwayScore !== score.awayScore) {
+        await applyLiveScore(match.id, score.homeScore, score.awayScore);
+        anyUpdate = true;
+      }
+      continue;
+    }
     anyUpdate = true;
   }
 

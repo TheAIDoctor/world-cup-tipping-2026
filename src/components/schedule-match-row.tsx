@@ -35,6 +35,9 @@ export type ScheduleMatchData = {
   stage: string;
   homeScore: number | null;
   awayScore: number | null;
+  liveHomeScore?: number | null;
+  liveAwayScore?: number | null;
+  liveStatus?: string | null;
   venue: string | null;
   city: string | null;
   country: string | null;
@@ -47,6 +50,14 @@ export function ScheduleMatchRow({ match }: { match: ScheduleMatchData }) {
   const router = useRouter();
 
   const played = match.homeScore !== null && match.awayScore !== null;
+  // Live in-progress score (display only) — shown when there is no final yet.
+  const live =
+    !played &&
+    match.liveStatus === "live" &&
+    match.liveHomeScore !== null && match.liveHomeScore !== undefined &&
+    match.liveAwayScore !== null && match.liveAwayScore !== undefined;
+  const shownHome = played ? match.homeScore : match.liveHomeScore;
+  const shownAway = played ? match.awayScore : match.liveAwayScore;
   const homeWon = played && match.homeScore! > match.awayScore!;
   const awayWon = played && match.awayScore! > match.homeScore!;
   const time = formatKickoffTime(match.date);
@@ -118,6 +129,13 @@ export function ScheduleMatchRow({ match }: { match: ScheduleMatchData }) {
                 style={{ color: "#ffcd57", textShadow: "0 0 10px rgba(255,205,87,0.3)" }}
               >
                 {match.homeScore}<span className="px-0.5 text-slate-500">–</span>{match.awayScore}
+              </span>
+            ) : live ? (
+              <span className="flex flex-col items-center leading-none gap-0.5">
+                <span className="font-extrabold text-base tabular-nums whitespace-nowrap text-white">
+                  {shownHome}<span className="px-0.5 text-slate-500">–</span>{shownAway}
+                </span>
+                <span className="text-[9px] font-bold uppercase tracking-wider text-red-400 animate-pulse">● Live</span>
               </span>
             ) : (
               <span className="text-slate-500 italic text-sm">v</span>
@@ -200,6 +218,13 @@ export function ScheduleMatchRow({ match }: { match: ScheduleMatchData }) {
                   style={{ color: "#ffcd57", textShadow: "0 0 10px rgba(255,205,87,0.3)" }}
                 >
                   {match.homeScore}<span className="px-0.5 text-slate-500">–</span>{match.awayScore}
+                </span>
+              ) : live ? (
+                <span className="flex flex-col items-center leading-none gap-0.5">
+                  <span className="font-extrabold text-sm tabular-nums whitespace-nowrap text-white">
+                    {shownHome}<span className="px-0.5 text-slate-500">–</span>{shownAway}
+                  </span>
+                  <span className="text-[8px] font-bold uppercase tracking-wider text-red-400 animate-pulse">● Live</span>
                 </span>
               ) : (
                 <span className="text-slate-500 italic text-xs">v</span>

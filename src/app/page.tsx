@@ -35,6 +35,9 @@ export default async function HomePage() {
           stage: true,
           homeScore: true,
           awayScore: true,
+          liveHomeScore: true,
+          liveAwayScore: true,
+          liveStatus: true,
           homeTeamId: true,
           awayTeamId: true,
           city: true,
@@ -403,6 +406,9 @@ export default async function HomePage() {
               awayTeam: m.awayTeam ? { name: m.awayTeam.name, code: m.awayTeam.code, flagEmoji: m.awayTeam.flagEmoji } : null,
               homeScore: m.homeScore,
               awayScore: m.awayScore,
+              liveHomeScore: m.liveHomeScore,
+              liveAwayScore: m.liveAwayScore,
+              liveStatus: m.liveStatus,
             }));
             return (
               <GroupCard

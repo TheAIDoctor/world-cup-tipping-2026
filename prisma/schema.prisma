@@ -77,8 +77,18 @@ model Match {
   awayTeamId         String?
   homeTeam           Team?      @relation("HomeTeam", fields: [homeTeamId], references: [id])
   awayTeam           Team?      @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  // FINAL official result ONLY. Written exclusively from the official fixture
+  // feed (a results feed — a score's presence there means the match is over)
+  // or an admin override. Never written with a live/in-progress score. The
+  // leaderboard, group standings, goalscorers, and bracket all key off these.
   homeScore          Int?
   awayScore          Int?
+  // Live in-progress score for DISPLAY ONLY (sourced from Perplexity during a
+  // match). Never used for points, standings, goalscorers, or bracket. Cleared
+  // when the official final result lands. liveStatus is "live" while playing.
+  liveHomeScore      Int?
+  liveAwayScore      Int?
+  liveStatus         String?
   // Penalty shootout scores (knockout only). Used to determine bracket winner
   // when 90' is drawn. Tips are scored against the 90' result only.
   penaltyHomeScore   Int?

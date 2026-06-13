@@ -13,6 +13,9 @@ export type GroupMatchData = {
   awayTeam: { name: string; code: string; flagEmoji: string } | null;
   homeScore: number | null;
   awayScore: number | null;
+  liveHomeScore?: number | null;
+  liveAwayScore?: number | null;
+  liveStatus?: string | null;
 };
 
 export type GroupStanding = {
@@ -228,6 +231,11 @@ export function GroupCard({ group, standings, matches, venues }: GroupCardProps)
           <div className="grid grid-cols-2 gap-2">
             {currentDay.map((m) => {
               const played = m.homeScore !== null && m.awayScore !== null;
+              const live =
+                !played &&
+                m.liveStatus === "live" &&
+                m.liveHomeScore !== null && m.liveHomeScore !== undefined &&
+                m.liveAwayScore !== null && m.liveAwayScore !== undefined;
               const homeWon = played && m.homeScore! > m.awayScore!;
               const awayWon = played && m.awayScore! > m.homeScore!;
 
@@ -240,12 +248,18 @@ export function GroupCard({ group, standings, matches, venues }: GroupCardProps)
                     borderColor: "var(--cm-border-faint)",
                   }}
                 >
-                  {/* Date + time */}
-                  <p className="text-[10px] tabular-nums leading-tight" style={{ color: "var(--cm-muted)" }}>
-                    {formatKickoffDate(m.date)}
-                    <br />
-                    {formatKickoffTime(m.date)} AEST
-                  </p>
+                  {/* Date + time (or LIVE indicator) */}
+                  {live ? (
+                    <p className="text-[10px] font-bold uppercase tracking-wider leading-tight text-red-400 animate-pulse">
+                      ● Live now
+                    </p>
+                  ) : (
+                    <p className="text-[10px] tabular-nums leading-tight" style={{ color: "var(--cm-muted)" }}>
+                      {formatKickoffDate(m.date)}
+                      <br />
+                      {formatKickoffTime(m.date)} AEST
+                    </p>
+                  )}
 
                   {/* Home team */}
                   <div className="flex items-center justify-between gap-1 min-w-0">
@@ -260,9 +274,9 @@ export function GroupCard({ group, standings, matches, venues }: GroupCardProps)
                     </span>
                     <span
                       className="text-xs font-bold tabular-nums shrink-0"
-                      style={{ color: played ? "#ffcd57" : "var(--cm-muted)", minWidth: "1rem", textAlign: "right" }}
+                      style={{ color: played ? "#ffcd57" : live ? "#fff" : "var(--cm-muted)", minWidth: "1rem", textAlign: "right" }}
                     >
-                      {played ? m.homeScore : "–"}
+                      {played ? m.homeScore : live ? m.liveHomeScore : "–"}
                     </span>
                   </div>
 
@@ -279,9 +293,9 @@ export function GroupCard({ group, standings, matches, venues }: GroupCardProps)
                     </span>
                     <span
                       className="text-xs font-bold tabular-nums shrink-0"
-                      style={{ color: played ? "#ffcd57" : "var(--cm-muted)", minWidth: "1rem", textAlign: "right" }}
+                      style={{ color: played ? "#ffcd57" : live ? "#fff" : "var(--cm-muted)", minWidth: "1rem", textAlign: "right" }}
                     >
-                      {played ? m.awayScore : "–"}
+                      {played ? m.awayScore : live ? m.liveAwayScore : "–"}
                     </span>
                   </div>
                 </div>

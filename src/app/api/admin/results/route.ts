@@ -39,6 +39,9 @@ export async function POST(req: Request) {
     awayTeamId?: string | null;
     homeScore?: number | null;
     awayScore?: number | null;
+    liveHomeScore?: number | null;
+    liveAwayScore?: number | null;
+    liveStatus?: string | null;
     penaltyHomeScore?: number | null;
     penaltyAwayScore?: number | null;
   } = {};
@@ -46,6 +49,12 @@ export async function POST(req: Request) {
   if (awayTeamId !== undefined) data.awayTeamId = awayTeamId || null;
   if (homeScore !== undefined) data.homeScore = homeScore;
   if (awayScore !== undefined) data.awayScore = awayScore;
+  // An admin-entered final result supersedes any live in-progress display.
+  if (homeScore !== undefined || awayScore !== undefined) {
+    data.liveHomeScore = null;
+    data.liveAwayScore = null;
+    data.liveStatus = null;
+  }
   if (penaltyHomeScore !== undefined) data.penaltyHomeScore = penaltyHomeScore;
   if (penaltyAwayScore !== undefined) data.penaltyAwayScore = penaltyAwayScore;
 
