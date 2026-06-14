@@ -32,6 +32,8 @@ const MATCH_INTERVAL   = 5  * 60 * 1000; // Perplexity live-poll cadence per mat
 const FINAL_INTERVAL   = 30 * 60 * 1000; // tournament standings
 let lastFinalFetch     = 0;
 
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
 type DbMatch = {
   id: string;
   matchNumber: number;
@@ -251,14 +253,17 @@ export async function runScoreSync(forceSync = false): Promise<{ checked: number
     if (!forceSync && nowMs - last < MATCH_INTERVAL) continue;
     lastMatchFetch.set(match.id, nowMs);
 
-    const score = await fetchMatchScore(match.homeTeam.name, match.awayTeam.name);
+    const score = await fetchMatchScore(match.homeTeam.name, match.awayTeam.name, 0);
     // Only trust an explicit live/finished answer; "not_started"/"unknown"
     // must never be stored.
     if (!score || (score.status !== "live" && score.status !== "finished")) continue;
 
-    // Consensus check: two independent reads must agree exactly before we
-    // store anything — one hallucinated read can't move the needle.
-    const confirm = await fetchMatchScore(match.homeTeam.name, match.awayTeam.name);
+    // Consensus check: a second, DIFFERENTLY-WORDED read (with a short gap so
+    // it isn't served from cache) must agree exactly before we store anything.
+    // Varying the phrasing is what makes this real — an identical re-ask just
+    // echoes the same hallucination.
+    await sleep(1500);
+    const confirm = await fetchMatchScore(match.homeTeam.name, match.awayTeam.name, 1);
     if (
       !confirm ||
       (confirm.status !== "live" && confirm.status !== "finished") ||
@@ -273,13 +278,29 @@ export async function runScoreSync(forceSync = false): Promise<{ checked: number
       continue;
     }
 
-    // Strict FINAL fallback (only if the feed is lagging): both reads say
-    // "finished" AND the match has been underway long enough to plausibly be
-    // over (≥ 2.5 h since kickoff). A mid-game "live 3-0" can never satisfy
-    // this — it stays a live display score until the feed confirms the final.
+    // Strict FINAL fallback (only if the feed is lagging): writing an official
+    // final from Perplexity is high-stakes — it scores tips, advances the
+    // bracket, and feeds the golden boot — so it demands a THIRD, independently
+    // worded read that also says "finished" with the same score, plus the match
+    // having been underway long enough to plausibly be over (≥ 2.5 h since
+    // kickoff). A mid-game "live 3-0" can never satisfy this — it stays a live
+    // display score until either the feed or this triple-consensus confirms it.
     const hoursSinceKickoff = (nowMs - match.date.getTime()) / (60 * 60 * 1000);
-    const confirmedFinal =
-      score.status === "finished" && confirm.status === "finished" && hoursSinceKickoff >= 2.5;
+    let confirmedFinal = false;
+    if (score.status === "finished" && confirm.status === "finished" && hoursSinceKickoff >= 2.5) {
+      await sleep(1500);
+      const third = await fetchMatchScore(match.homeTeam.name, match.awayTeam.name, 2);
+      confirmedFinal =
+        !!third && third.status === "finished" &&
+        third.homeScore === score.homeScore && third.awayScore === score.awayScore;
+      if (!confirmedFinal) {
+        console.warn(
+          `Final triple-consensus failed for ${match.homeTeam.name} v ${match.awayTeam.name}: ` +
+          `${score.homeScore}-${score.awayScore} vs ` +
+          `${third ? `${third.homeScore}-${third.awayScore} (${third.status})` : "null"} — keeping as live`
+        );
+      }
+    }
 
     if (confirmedFinal) {
       await applyResult(match.id, score.homeScore, score.awayScore, true);
@@ -293,6 +314,21 @@ export async function runScoreSync(forceSync = false): Promise<{ checked: number
     }
     anyUpdate = true;
   }
+
+  // ── 1c. Stale live-score guard ───────────────────────────────────────────
+  // A live (Perplexity) score that never got superseded by an official final
+  // would otherwise display a pulsing "● Live" badge forever — which is what
+  // froze a bogus "Live 4-3" on a long-finished match. If a match is still
+  // flagged live with no official result well past any plausible end (kickoff
+  // + 200 min, covering extra time + penalties), drop the stale live display.
+  // The next real read (or the feed) restores it if the match is somehow still
+  // going.
+  const staleBefore = new Date(nowMs - 200 * 60 * 1000);
+  const cleared = await prisma.match.updateMany({
+    where: { liveStatus: "live", homeScore: null, date: { lt: staleBefore } },
+    data: { liveHomeScore: null, liveAwayScore: null, liveStatus: null },
+  });
+  if (cleared.count > 0) anyUpdate = true;
 
   // ── 2. Goalscorers per finished match → Golden Boot ─────────────────────
   // A match needs scorers when it has a final result but no MatchGoal rows.

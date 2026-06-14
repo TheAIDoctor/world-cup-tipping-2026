@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/live-scores",
+      "schedule": "*/3 * * * *"
+    },
+    {
       "path": "/api/cloudy/daily-review",
       "schedule": "0 8 * * *"
     },

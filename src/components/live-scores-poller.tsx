@@ -12,7 +12,7 @@ const CLOUDY_IDLE_MS  = 15 * 60 * 1000; // Cloudy check cadence otherwise
  * kickoffTimes: Unix timestamps (ms) of today's matches, passed from the
  * server component so the client knows when to activate live polling.
  *
- * During a live window (kickoff − 2 min → kickoff + 115 min) this component
+ * During a live window (kickoff − 2 min → kickoff + 200 min) this component
  * calls POST /api/live-scores, which syncs official scores into the DB and
  * revalidates the cache, then router.refresh() re-renders with fresh data.
  *
@@ -30,8 +30,12 @@ export function LiveScoresPoller({ kickoffTimes }: { kickoffTimes: number[] }) {
   useEffect(() => {
     const isLive = () => {
       const now = Date.now();
+      // Window must extend past the Perplexity final-confirmation threshold
+      // (kickoff + 150 min, see sync-scores.ts) so a result the official feed
+      // is slow to publish can still be finalised before polling stops; the
+      // cron is the real backstop, this just keeps an open tab in sync.
       return kickoffTimes.some(
-        (t) => now >= t - 2 * 60 * 1000 && now <= t + 115 * 60 * 1000
+        (t) => now >= t - 2 * 60 * 1000 && now <= t + 200 * 60 * 1000
       );
     };
 

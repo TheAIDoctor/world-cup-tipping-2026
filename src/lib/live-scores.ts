@@ -51,20 +51,41 @@ async function openrouterCall(prompt: string, maxTokens: number): Promise<string
 
 /**
  * Fetches the current or final score for a single WC 2026 match.
+ *
+ * `variant` rewords the prompt without changing its meaning. Consensus reads
+ * MUST use different variants: firing the identical prompt at the same model
+ * twice just returns the same answer — including the same hallucination — so
+ * an identical double-read offers no real protection (this is exactly how a
+ * bogus 4-3 once passed "consensus"). Differently-phrased reads that still
+ * agree are far stronger evidence the score is real.
  */
 export async function fetchMatchScore(
   homeTeam: string,
-  awayTeam: string
+  awayTeam: string,
+  variant = 0
 ): Promise<MatchScoreResult | null> {
-  const raw = await openrouterCall(
-    `FIFA World Cup 2026 match: ${homeTeam} vs ${awayTeam}.\n` +
-    `What is the exact score right now? If finished, give the final score.\n` +
-    `Reply with ONLY valid JSON, no other text:\n` +
-    `{"status":"live","homeScore":0,"awayScore":0}\n` +
-    `"status" must be exactly one of: "live", "finished", "not_started".\n` +
-    `${homeTeam} score goes in "homeScore", ${awayTeam} score in "awayScore".`,
-    120
-  );
+  const prompt = variant === 0
+    ? `FIFA World Cup 2026 match: ${homeTeam} vs ${awayTeam}.\n` +
+      `What is the exact score right now? If finished, give the final score.\n` +
+      `Reply with ONLY valid JSON, no other text:\n` +
+      `{"status":"live","homeScore":0,"awayScore":0}\n` +
+      `"status" must be exactly one of: "live", "finished", "not_started".\n` +
+      `${homeTeam} score goes in "homeScore", ${awayTeam} score in "awayScore".`
+    : variant === 1
+    ? `In the 2026 FIFA World Cup, ${homeTeam} played (or are playing) ${awayTeam}.\n` +
+      `Report the current scoreline. State how many goals ${homeTeam} have and how many ${awayTeam} have.\n` +
+      `If the match is over, report the final result instead.\n` +
+      `Output ONLY this JSON and nothing else:\n` +
+      `{"status":"live","homeScore":0,"awayScore":0}\n` +
+      `Set "status" to one of "live", "finished", or "not_started".\n` +
+      `Put ${homeTeam}'s goals in "homeScore" and ${awayTeam}'s goals in "awayScore".`
+    : `Look up the World Cup 2026 fixture between ${homeTeam} and ${awayTeam}.\n` +
+      `How many goals has each side scored? Give the live tally, or the final score if it has ended.\n` +
+      `Respond with JSON only — no commentary:\n` +
+      `{"status":"live","homeScore":0,"awayScore":0}\n` +
+      `"status" is exactly "live", "finished", or "not_started".\n` +
+      `"homeScore" = goals by ${homeTeam}; "awayScore" = goals by ${awayTeam}.`;
+  const raw = await openrouterCall(prompt, 120);
   if (!raw) return null;
   try {
     const jsonMatch = raw.match(/\{[\s\S]*?\}/);
