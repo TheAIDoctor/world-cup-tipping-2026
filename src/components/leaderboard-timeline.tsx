@@ -70,30 +70,45 @@ export function LeaderboardTimeline({
     <Card>
       <CardContent className="p-4 space-y-3">
         {/* Controls */}
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="inline-flex rounded-lg border p-0.5" style={{ borderColor: "var(--cm-border)", background: "var(--cm-card-deep)" }}>
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--cm-muted)" }}>
+            View by
+          </span>
+          <div
+            className="inline-flex rounded-lg border p-1 gap-1"
+            style={{ borderColor: "rgba(193,15,255,0.4)", background: "var(--cm-card-deep)" }}
+            role="tablist"
+            aria-label="Timeline view mode"
+          >
             {([
-              { key: "rank", label: "Position" },
-              { key: "points", label: "Points" },
+              { key: "rank", label: "Position", icon: "📊", hint: "rank" },
+              { key: "points", label: "Points", icon: "📈", hint: "total" },
             ] as const).map((opt) => {
               const on = mode === opt.key;
               return (
                 <button
                   key={opt.key}
+                  role="tab"
+                  aria-selected={on}
                   onClick={() => setMode(opt.key)}
-                  className="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors"
-                  style={on ? { background: "linear-gradient(135deg, #060097, #c10fff)", color: "#fff" } : { color: "var(--cm-muted)" }}
+                  className="px-4 py-1.5 rounded-md text-sm font-semibold transition-all"
+                  style={
+                    on
+                      ? { background: "linear-gradient(135deg, #060097, #c10fff)", color: "#fff", boxShadow: "0 0 12px rgba(193,15,255,0.45)" }
+                      : { background: "rgba(193,15,255,0.10)", color: "var(--cm-foreground)" }
+                  }
                 >
-                  {opt.label}
+                  {opt.icon} {opt.label}
+                  <span className="ml-1 text-[10px] font-normal opacity-70">({opt.hint})</span>
                 </button>
               );
             })}
           </div>
-          <p className="text-[11px] text-muted-foreground">
-            Match-tipping race · {mode === "rank" ? "rank after each match (1 = top)" : "cumulative points"}
-            {active && <> · <span style={{ color: "#ffcd57" }}>{players.find((p) => p.id === active)?.name}</span></>}
-          </p>
         </div>
+        <p className="text-[11px] text-muted-foreground -mt-1">
+          Match-tipping race · {mode === "rank" ? "each player's rank after every match (1 = top)" : "each player's cumulative points over time"}
+          {active && <> · highlighting <span style={{ color: "#ffcd57" }}>{players.find((p) => p.id === active)?.name}</span></>}
+        </p>
 
         {/* Chart (horizontally scrollable when wide) */}
         <div className="overflow-x-auto -mx-4 px-4">
