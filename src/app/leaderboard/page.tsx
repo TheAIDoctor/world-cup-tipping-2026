@@ -1,8 +1,10 @@
-import { getLeaderboard } from "@/lib/scoring";
+import { getLeaderboard, getLeaderboardTimeline } from "@/lib/scoring";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LiveScoresPoller } from "@/components/live-scores-poller";
+import { LeaderboardTimeline } from "@/components/leaderboard-timeline";
 
 export const dynamic = "force-dynamic";
 
@@ -10,8 +12,12 @@ const MEDALS = ["🥇", "🥈", "🥉"];
 const BOOT_MEDALS = ["🥇", "🥈", "🥉"];
 
 export default async function LeaderboardPage() {
-  const [leaderboard, topScorers, topScorerPredictions, tournamentPredictions, allTeams, todayMatches] = await Promise.all([
+  const session = await auth();
+  const currentUserId = session?.user?.id ?? null;
+
+  const [leaderboard, timeline, topScorers, topScorerPredictions, tournamentPredictions, allTeams, todayMatches] = await Promise.all([
     getLeaderboard(),
+    getLeaderboardTimeline(),
     prisma.topScorer.findMany({ orderBy: [{ goals: "desc" }, { name: "asc" }], take: 10 }),
     prisma.topScorerPrediction.findMany(),
     prisma.tournamentPrediction.findMany({ select: { champion: true } }),
@@ -227,6 +233,17 @@ export default async function LeaderboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* ── Race timeline ──────────────────────────────────────────────────── */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-bold">📈 Race Timeline</h2>
+          <Badge variant="outline" className="text-[10px]" style={{ color: "rgba(148,163,184,0.9)", borderColor: "rgba(148,163,184,0.3)" }}>
+            match by match
+          </Badge>
+        </div>
+        <LeaderboardTimeline data={timeline} currentUserId={currentUserId} />
+      </section>
 
       {/* ── Golden Boot ────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
