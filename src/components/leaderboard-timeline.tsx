@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import type { LeaderboardTimeline } from "@/lib/scoring";
 
@@ -12,7 +12,6 @@ function colorFor(index: number, total: number): string {
 
 const W_PAD_L = 8;
 const W_PAD_R = 12;
-const STEP_W = 88;       // px per match column
 const H = 460;           // fixed chart height
 const TOP = 18;
 const BOTTOM = 56;
@@ -30,6 +29,24 @@ export function LeaderboardTimeline({
   const [pinned, setPinned] = useState<string | null>(null);
   const active = hover ?? pinned;
 
+  // Fit the chart to the container width so it never scrolls horizontally;
+  // the gap between matches simply shrinks as more results come in.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(900);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => setWidth(Math.max(el.clientWidth, 280));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener("resize", update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
   const { steps, players } = data;
 
   if (steps.length <= 1 || players.length === 0) {
@@ -44,10 +61,19 @@ export function LeaderboardTimeline({
 
   const stepCount = steps.length;
   const playerCount = players.length;
-  const chartW = W_PAD_L + (stepCount - 1) * STEP_W + W_PAD_R;
+  const chartW = width;
+  const plotW = chartW - W_PAD_L - W_PAD_R;
   const maxPts = Math.max(1, ...players.map((p) => p.finalPoints));
 
-  const stepX = (s: number) => W_PAD_L + s * STEP_W;
+  const stepX = (s: number) =>
+    W_PAD_L + (stepCount <= 1 ? 0 : (s / (stepCount - 1)) * plotW);
+
+  // Thin x-axis labels so they don't overlap when matches are tightly packed;
+  // always keep the first and last.
+  const labelStride = Math.max(
+    1,
+    Math.ceil(stepCount / Math.max(2, Math.floor(plotW / 46)))
+  );
   const yFor = (player: LeaderboardTimeline["players"][number], s: number) => {
     if (mode === "rank") {
       // rank 1 at top → rank N at bottom
@@ -110,13 +136,11 @@ export function LeaderboardTimeline({
           {active && <> · highlighting <span style={{ color: "#ffcd57" }}>{players.find((p) => p.id === active)?.name}</span></>}
         </p>
 
-        {/* Chart (horizontally scrollable when wide) */}
-        <div className="overflow-x-auto -mx-4 px-4">
+        {/* Chart — fits the container width (no horizontal scroll) */}
+        <div ref={containerRef} className="w-full">
           <svg
-            width={chartW}
-            height={H}
             viewBox={`0 0 ${chartW} ${H}`}
-            style={{ minWidth: chartW, display: "block" }}
+            style={{ width: "100%", height: H, display: "block" }}
             onMouseLeave={() => setHover(null)}
           >
             {/* Y ticks / gridlines */}
@@ -135,20 +159,26 @@ export function LeaderboardTimeline({
               );
             })}
 
-            {/* X labels (match results), rotated for density */}
-            {steps.map((st, s) => (
-              <text
-                key={`xl-${s}`}
-                x={stepX(s)}
-                y={H - BOTTOM + 14}
-                fontSize={9}
-                fill="rgba(148,163,184,0.85)"
-                transform={`rotate(35 ${stepX(s)} ${H - BOTTOM + 14})`}
-                style={{ whiteSpace: "pre" }}
-              >
-                {st.label}
-              </text>
-            ))}
+            {/* X labels (match results), rotated; thinned to avoid overlap */}
+            {steps.map((st, s) => {
+              if (s % labelStride !== 0 && s !== stepCount - 1) return null;
+              const x = stepX(s);
+              const y = H - BOTTOM + 13;
+              return (
+                <text
+                  key={`xl-${s}`}
+                  x={x}
+                  y={y}
+                  fontSize={8}
+                  fill="rgba(148,163,184,0.85)"
+                  textAnchor="end"
+                  transform={`rotate(40 ${x} ${y})`}
+                  style={{ whiteSpace: "pre" }}
+                >
+                  {st.label}
+                </text>
+              );
+            })}
 
             {/* Player lines */}
             {players.map((p, i) => {
