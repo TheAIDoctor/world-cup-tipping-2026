@@ -13,6 +13,7 @@ import Image from "next/image";
 import { BanterBoard } from "@/components/banter-board";
 import { NewsTicker } from "@/components/news-ticker";
 import { LiveScoresPoller } from "@/components/live-scores-poller";
+import { pendingKickoffMs } from "@/lib/poller";
 
 export default async function HomePage() {
   const session = await auth();
@@ -109,11 +110,11 @@ export default async function HomePage() {
   const top5 = leaderboard.slice(0, 5);
   const displayName = session?.user?.name || session?.user?.email?.split("@")[0];
 
-  const kickoffTimes = groupMatches.map((m) => new Date(m.date).getTime());
+  const pendingKickoffs = pendingKickoffMs(groupMatches, Date.now());
 
   return (
     <div className="space-y-8">
-      <LiveScoresPoller kickoffTimes={kickoffTimes} />
+      <LiveScoresPoller pendingKickoffs={pendingKickoffs} />
       {/* ── News Ticker ───────────────────────────────────────────────────── */}
       <NewsTicker />
       {/* ── Hero ──────────────────────────────────────────────────────────── */}

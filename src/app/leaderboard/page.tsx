@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LiveScoresPoller } from "@/components/live-scores-poller";
 import { LeaderboardTimeline } from "@/components/leaderboard-timeline";
+import { pendingKickoffMs } from "@/lib/poller";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +23,9 @@ export default async function LeaderboardPage() {
     prisma.topScorerPrediction.findMany(),
     prisma.tournamentPrediction.findMany({ select: { champion: true } }),
     prisma.team.findMany({ select: { name: true, flagEmoji: true } }),
-    prisma.match.findMany({ select: { date: true } }),
+    prisma.match.findMany({ select: { date: true, homeScore: true } }),
   ]);
-  const kickoffTimes = todayMatches.map((m) => new Date(m.date).getTime());
+  const pendingKickoffs = pendingKickoffMs(todayMatches, Date.now());
 
   // Lookup map: team name → flag emoji
   const teamFlag: Record<string, string> = Object.fromEntries(
@@ -67,7 +68,7 @@ export default async function LeaderboardPage() {
 
   return (
     <div className="space-y-8">
-      <LiveScoresPoller kickoffTimes={kickoffTimes} />
+      <LiveScoresPoller pendingKickoffs={pendingKickoffs} />
       <header className="relative text-center py-4 sm:py-8 overflow-hidden">
         <svg
           aria-hidden="true"
