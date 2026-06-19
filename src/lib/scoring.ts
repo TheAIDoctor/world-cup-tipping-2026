@@ -11,6 +11,10 @@ export type PlayerScore = {
   tournamentPts: number;
   topScorerPts: number;
   total: number;
+  // Accuracy over matches that have a final result:
+  played: number; // finished matches this player entered a tip for
+  exact: number; // tips that nailed the exact score (5 pts)
+  correct: number; // tips that got the result right but not the score (3 pts)
 };
 
 /**
@@ -51,11 +55,19 @@ export async function getLeaderboard(): Promise<PlayerScore[]> {
 
   return users
     .map((u) => {
-      const matchPts = u.matchTips.reduce((sum, tip) => {
+      let matchPts = 0;
+      let played = 0;
+      let exact = 0;
+      let correct = 0;
+      for (const tip of u.matchTips) {
         const res = resultMap.get(tip.matchId);
-        if (!res) return sum;
-        return sum + calcMatchPoints(tip.homeScore, tip.awayScore, res.home, res.away);
-      }, 0);
+        if (!res) continue; // match not finished yet
+        played++;
+        const pts = calcMatchPoints(tip.homeScore, tip.awayScore, res.home, res.away);
+        matchPts += pts;
+        if (pts === 5) exact++;
+        else if (pts === 3) correct++;
+      }
 
       const tournamentPts =
         u.tournamentPrediction && result
@@ -76,6 +88,9 @@ export async function getLeaderboard(): Promise<PlayerScore[]> {
         tournamentPts,
         topScorerPts,
         total: matchPts + tournamentPts + topScorerPts,
+        played,
+        exact,
+        correct,
       };
     })
     .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));

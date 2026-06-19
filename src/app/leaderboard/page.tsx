@@ -158,11 +158,14 @@ export default async function LeaderboardPage() {
           ) : (
             <div className="divide-y" style={{ borderColor: "rgba(193,15,255,0.1)" }}>
               {/* Header row */}
-              <div className="grid grid-cols-[2.5rem_1fr_5rem] md:grid-cols-[3rem_1fr_4.5rem_5rem_4.5rem_5.5rem] gap-2 items-center px-3 sm:px-4 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold">
+              <div className="grid grid-cols-[2.5rem_1fr_5rem] md:grid-cols-[2.5rem_minmax(0,1fr)_3rem_2.75rem_3rem_3.5rem_3.5rem_3.5rem_4rem] gap-2 items-center px-3 sm:px-4 py-2 text-xs uppercase tracking-wider text-slate-500 font-semibold">
                 <span>Rank</span>
                 <span>Player</span>
-                <span className="text-right hidden md:block">Tips</span>
-                <span className="text-right hidden md:block">Tournament</span>
+                <span className="text-right hidden md:block" title="Played matches you entered a tip for">Tipped</span>
+                <span className="text-right hidden md:block" title="Exact scores (5 pts)">Exact</span>
+                <span className="text-right hidden md:block" title="Correct result, not exact (3 pts)">Result</span>
+                <span className="text-right hidden md:block" title="Points from match tips">Tip Pts</span>
+                <span className="text-right hidden md:block">Tourn</span>
                 <span className="text-right hidden md:block">Scorers</span>
                 <span className="text-right">Total</span>
               </div>
@@ -174,7 +177,7 @@ export default async function LeaderboardPage() {
                 return (
                   <div
                     key={player.id}
-                    className="grid grid-cols-[2.5rem_1fr_5rem] md:grid-cols-[3rem_1fr_4.5rem_5rem_4.5rem_5.5rem] gap-2 items-center px-3 sm:px-4 py-3"
+                    className="grid grid-cols-[2.5rem_1fr_5rem] md:grid-cols-[2.5rem_minmax(0,1fr)_3rem_2.75rem_3rem_3.5rem_3.5rem_3.5rem_4rem] gap-2 items-center px-3 sm:px-4 py-3"
                     style={
                       isLeader
                         ? {
@@ -205,7 +208,22 @@ export default async function LeaderboardPage() {
                       {player.email !== player.name && (
                         <p className="text-xs text-muted-foreground truncate">{player.email}</p>
                       )}
+                      {/* Compact stats on mobile (the dedicated columns are md+ only) */}
+                      {player.played > 0 && (
+                        <p className="text-[11px] text-muted-foreground md:hidden mt-0.5 tabular-nums">
+                          {player.played} tipped · <span style={{ color: "#ffcd57" }}>{player.exact}</span> exact · {player.correct} result
+                        </p>
+                      )}
                     </div>
+                    <span className="text-right tabular-nums text-sm text-slate-300 hidden md:block">
+                      {player.played}
+                    </span>
+                    <span className="text-right tabular-nums text-sm font-semibold hidden md:block" style={{ color: player.exact > 0 ? "#ffcd57" : "var(--cm-muted)" }}>
+                      {player.exact}
+                    </span>
+                    <span className="text-right tabular-nums text-sm text-slate-300 hidden md:block">
+                      {player.correct}
+                    </span>
                     <span className="text-right tabular-nums text-sm text-slate-300 hidden md:block">
                       {player.matchPts}
                     </span>
