@@ -27,6 +27,9 @@ export function LeaderboardTimeline({
   const [mode, setMode] = useState<"rank" | "points">("rank");
   const [hover, setHover] = useState<string | null>(null);
   const [pinned, setPinned] = useState<string | null>(null);
+  const [tip, setTip] = useState<
+    { x: number; y: number; name: string; value: string; match: string } | null
+  >(null);
   const active = hover ?? pinned;
 
   // Fit the chart to the container width so it never scrolls horizontally;
@@ -137,11 +140,11 @@ export function LeaderboardTimeline({
         </p>
 
         {/* Chart — fits the container width (no horizontal scroll) */}
-        <div ref={containerRef} className="w-full">
+        <div ref={containerRef} className="w-full relative">
           <svg
             viewBox={`0 0 ${chartW} ${H}`}
             style={{ width: "100%", height: H, display: "block" }}
-            onMouseLeave={() => setHover(null)}
+            onMouseLeave={() => { setHover(null); setTip(null); }}
           >
             {/* Y ticks / gridlines */}
             {yTicks.map((t) => {
@@ -207,16 +210,65 @@ export function LeaderboardTimeline({
               );
             })}
 
-            {/* End dots for the active line */}
+            {/* Data-point dots + hover tooltips for the highlighted player.
+                Hover (or tap) any line to highlight it, then hover its dots to
+                read the exact value and which match it was. */}
             {active &&
               (() => {
                 const p = players.find((x) => x.id === active);
                 if (!p) return null;
-                return steps.map((_, s) => (
-                  <circle key={`d-${s}`} cx={stepX(s)} cy={yFor(p, s)} r={2.8} fill="#ffcd57" />
-                ));
+                return steps.map((st, s) => {
+                  const cx = stepX(s);
+                  const cy = yFor(p, s);
+                  const value =
+                    mode === "rank"
+                      ? `Position #${p.ranks[s]}`
+                      : `${p.points[s]} pt${p.points[s] === 1 ? "" : "s"}`;
+                  const matchLabel = s === 0 ? "Start" : st.label;
+                  const show = () => setTip({ x: cx, y: cy, name: p.name, value, match: matchLabel });
+                  return (
+                    <g key={`dot-${s}`}>
+                      <circle cx={cx} cy={cy} r={3.4} fill="#ffcd57" stroke="#0b0030" strokeWidth={1} />
+                      <circle
+                        cx={cx}
+                        cy={cy}
+                        r={9}
+                        fill="transparent"
+                        style={{ cursor: "pointer" }}
+                        onMouseEnter={show}
+                        onMouseMove={show}
+                        onMouseLeave={() => setTip(null)}
+                        onClick={show}
+                      />
+                    </g>
+                  );
+                });
               })()}
           </svg>
+
+          {tip && (() => {
+            const leftPct = Math.min(92, Math.max(8, (tip.x / chartW) * 100));
+            const above = tip.y > 70;
+            return (
+              <div
+                className="pointer-events-none absolute z-10 rounded-md px-2 py-1 text-[11px] shadow-lg"
+                style={{
+                  left: `${leftPct}%`,
+                  top: tip.y,
+                  transform: above ? "translate(-50%, calc(-100% - 10px))" : "translate(-50%, 14px)",
+                  background: "rgba(7,0,40,0.96)",
+                  border: "1px solid rgba(193,15,255,0.55)",
+                  color: "#fff",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <div className="font-bold" style={{ color: "#ffcd57" }}>{tip.name}</div>
+                <div>
+                  {tip.value} · <span style={{ color: "rgba(148,163,184,0.95)" }}>{tip.match}</span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Legend — click/hover to highlight a line */}
