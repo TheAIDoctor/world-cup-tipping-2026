@@ -30,7 +30,10 @@ export function LeaderboardTimeline({
   const [tip, setTip] = useState<
     { x: number; y: number; name: string; value: string; match: string } | null
   >(null);
-  const active = hover ?? pinned;
+  // A clicked (pinned) player wins over hover, so once you select a name in
+  // the legend the line stays fixed while you move the mouse over the chart to
+  // explore its dots. Hover only previews when nothing is pinned.
+  const active = pinned ?? hover;
 
   // Fit the chart to the container width so it never scrolls horizontally;
   // the gap between matches simply shrinks as more results come in.
@@ -136,7 +139,13 @@ export function LeaderboardTimeline({
         </div>
         <p className="text-[11px] text-muted-foreground -mt-1">
           Match-tipping race · {mode === "rank" ? "each player's rank after every match (1 = top)" : "each player's cumulative points over time"}
-          {active && <> · highlighting <span style={{ color: "#ffcd57" }}>{players.find((p) => p.id === active)?.name}</span></>}
+          {pinned ? (
+            <> · 📌 locked on <span style={{ color: "#ffcd57" }}>{players.find((p) => p.id === pinned)?.name}</span> <span className="opacity-70">(click the name again to release)</span></>
+          ) : active ? (
+            <> · highlighting <span style={{ color: "#ffcd57" }}>{players.find((p) => p.id === active)?.name}</span> <span className="opacity-70">· click a name below to lock it</span></>
+          ) : (
+            <> · <span className="opacity-70">tap a player below to lock their line</span></>
+          )}
         </p>
 
         {/* Chart — fits the container width (no horizontal scroll) */}
