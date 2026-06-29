@@ -2,7 +2,7 @@ import { prisma } from "./prisma";
 import { calcMatchPoints } from "./points";
 import { fetchMatchScore, fetchMatchScorers, fetchTournamentStandings } from "./live-scores";
 import { fetchOfficialFeed, normalizeFeedTeam, feedDate, type FeedMatch } from "./official-feed";
-import { assignR32Slots } from "./bracket-slotting";
+import { assignR32Slots, reconcileKnockoutTeamsFromFeed } from "./bracket-slotting";
 import { cloudyReactToResult } from "./cloudy-react";
 import { revalidatePath } from "next/cache";
 import { TOURNAMENT_RESULT_ID } from "./constants";
@@ -181,6 +181,17 @@ export async function runScoreSync(forceSync = false): Promise<{ checked: number
 
   // The official feed is fetched once per sync (internally cached 2 min).
   const feed = await fetchOfficialFeed();
+
+  // ── 0. Knockout matchups — feed is authoritative. ──────────────────────────
+  // Correct any mis-slotted knockout team (the feed's published pairings beat
+  // our own third-place backtracking) BEFORE scoring, so a corrected team gets
+  // scored against the right fixture.
+  if (feed) {
+    try {
+      const fixed = await reconcileKnockoutTeamsFromFeed(feed);
+      if (fixed > 0) { anyUpdate = true; console.log(`Reconciled ${fixed} knockout team slot(s) from feed`); }
+    } catch (e) { console.error("Knockout reconciliation failed:", e); }
+  }
 
   // ── 1. Match scores ──────────────────────────────────────────────────────
   // Active window is ±8 h around the stored kickoff: covers live games, keeps
@@ -401,16 +412,32 @@ export async function runScoreSync(forceSync = false): Promise<{ checked: number
   }
 
   // ── 3. Tournament standings ──────────────────────────────────────────────
+  // Champion/runner-up/third/fourth + Golden Boot award real bonus points, so
+  // they must NEVER be written before the tournament is genuinely over. The
+  // LLM in fetchTournamentStandings cannot reliably know whether a 2026 event
+  // has finished — it has hallucinated a finished tournament (and a fabricated
+  // final result) mid–group-stage, prematurely paying out bonuses. So gate on
+  // our OWN authoritative match data: only accept standings once the Final
+  // (stage "F") carries a confirmed official result. Until then, leave the
+  // TournamentResult untouched (admin can still enter it manually).
   if (nowMs - lastFinalFetch >= FINAL_INTERVAL) {
     lastFinalFetch = nowMs;
-    const standings = await fetchTournamentStandings();
-    if (standings) {
-      await prisma.tournamentResult.upsert({
-        where: { id: TOURNAMENT_RESULT_ID },
-        create: { id: TOURNAMENT_RESULT_ID, ...standings },
-        update: standings,
-      });
-      anyUpdate = true;
+    const finalMatch = await prisma.match.findFirst({
+      where: { stage: "F" },
+      select: { homeScore: true, awayScore: true },
+    });
+    const tournamentOver =
+      finalMatch?.homeScore != null && finalMatch?.awayScore != null;
+    if (tournamentOver) {
+      const standings = await fetchTournamentStandings();
+      if (standings) {
+        await prisma.tournamentResult.upsert({
+          where: { id: TOURNAMENT_RESULT_ID },
+          create: { id: TOURNAMENT_RESULT_ID, ...standings },
+          update: standings,
+        });
+        anyUpdate = true;
+      }
     }
   }
 

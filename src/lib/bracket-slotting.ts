@@ -1,5 +1,57 @@
 import { prisma } from "./prisma";
 import { computeGroupStandings, type Standing } from "./groups";
+import { normalizeFeedTeam, type FeedMatch } from "./official-feed";
+
+/**
+ * Authoritative knockout-matchup reconciliation from the official feed.
+ *
+ * The feed publishes the real knockout matchups by FIFA match number (73–104)
+ * as soon as they are decided — and those names are the source of truth. Our
+ * own R32 backtracking (assignR32Slots) only matches FIFA's official
+ * third-place lookup table "in the vast majority of combinations", so when the
+ * two disagree the feed wins. This corrects mis-slotted thirds (e.g. the
+ * Sweden/Paraguay and Senegal/Ecuador swaps that produced a phantom
+ * "Germany vs Sweden" R32 tie).
+ *
+ * Safe + idempotent:
+ *   - Only writes when the feed names a REAL team (present in our Team table)
+ *     that differs from what's stored — "To be announced" placeholders for
+ *     undecided later rounds are ignored.
+ *   - Never touches a match that already carries an official result.
+ *   - Tips are keyed to the home/away slot, not the opponent, so swapping which
+ *     team occupies a slot leaves a player's existing numeric tip intact.
+ */
+export async function reconcileKnockoutTeamsFromFeed(
+  feed: FeedMatch[]
+): Promise<number> {
+  const [koMatches, teams] = await Promise.all([
+    prisma.match.findMany({
+      where: { stage: { not: "group" } },
+      select: { id: true, matchNumber: true, homeTeamId: true, awayTeamId: true, homeScore: true },
+    }),
+    prisma.team.findMany({ select: { id: true, name: true } }),
+  ]);
+  const idByName = new Map(teams.map((t) => [t.name, t.id]));
+
+  let fixed = 0;
+  for (const m of koMatches) {
+    if (m.homeScore !== null) continue; // result recorded — never reassign
+    const f = feed.find((x) => x.MatchNumber === m.matchNumber);
+    if (!f) continue;
+
+    const data: { homeTeamId?: string; awayTeamId?: string } = {};
+    const homeId = idByName.get(normalizeFeedTeam(f.HomeTeam));
+    const awayId = idByName.get(normalizeFeedTeam(f.AwayTeam));
+    if (homeId && homeId !== m.homeTeamId) data.homeTeamId = homeId;
+    if (awayId && awayId !== m.awayTeamId) data.awayTeamId = awayId;
+
+    if (Object.keys(data).length > 0) {
+      await prisma.match.update({ where: { id: m.id }, data });
+      fixed += Object.keys(data).length;
+    }
+  }
+  return fixed;
+}
 
 /**
  * Automatic R32 bracket slotting from group results.
