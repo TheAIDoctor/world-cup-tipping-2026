@@ -258,6 +258,15 @@ export async function runScoreSync(forceSync = false): Promise<{ checked: number
     // it. Perplexity never re-touches a finalised match.
     if (match.homeScore !== null) continue;
 
+    // A match cannot be live (or final) before it kicks off. Without this guard
+    // the LLM has hallucinated an in-progress score for a not-yet-started match
+    // (e.g. a phantom "6-3 live" an hour before kickoff). Kickoff times are
+    // continuously reconciled against the official feed below (§4), so a stored
+    // kickoff in the future is trustworthy — skip any live/final read until it
+    // actually passes. The free official feed (§1a above) still lands the final
+    // regardless, so this only gates the paid live-display path.
+    if (nowMs < match.date.getTime()) continue;
+
     // ── 1b. No official result yet — Perplexity for LIVE display only. ──────
     // Rate-limit the paid Perplexity calls; the feed above is free.
     const last = lastMatchFetch.get(match.id) ?? 0;
